@@ -1,10 +1,10 @@
-# aienv
+# aisbox
 
-`aienv` runs AI coding agents inside isolated Docker environments.
+`aisbox` runs AI coding agents inside isolated Docker environments.
 
-Each environment stores its own config and files under `~/.aienv/<name>`.
+Each environment stores its own config and files under `~/.aisbox/<name>`.
 Host `~/.claude` and `~/.codex` directories are not copied or mounted.
-Docker must be usable by the current user. `aienv` does not run Docker through `sudo`.
+Docker must be usable by the current user. `aisbox` does not run Docker through `sudo`.
 
 ## Install From This Repository
 
@@ -24,24 +24,24 @@ pytest
 ## Commands
 
 ```bash
-aienv create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
-aienv create -n demo1 -a codex --workspace /path/to/source
-aienv run -n demo1 -- "summarize this repository"
-aienv attach -n demo1
-aienv shell -n demo1
-aienv list
-aienv inspect -n demo1
-aienv rebuild -n demo1
-aienv mount -n demo1 /path/to/dir dir
-aienv unmount -n demo1 dir
-aienv env set -n demo1 KEY=VALUE
-aienv env unset -n demo1 KEY
-aienv doctor
-aienv delete -n demo1 --force
+aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
+aisbox create -n demo1 -a codex --workspace /path/to/source
+aisbox run -n demo1 -- "summarize this repository"
+aisbox attach -n demo1
+aisbox shell -n demo1
+aisbox list
+aisbox inspect -n demo1
+aisbox rebuild -n demo1
+aisbox mount -n demo1 /path/to/dir dir
+aisbox unmount -n demo1 dir
+aisbox env set -n demo1 KEY=VALUE
+aisbox env unset -n demo1 KEY
+aisbox doctor
+aisbox delete -n demo1 --force
 ```
 
 ## Authentication
 
-Authenticate interactively inside the container with `aienv attach -n demo1`,
+Authenticate interactively inside the container with `aisbox attach -n demo1`,
 or provide explicit API tokens with `-e KEY=VALUE` during create and
-`aienv env set` after creation.
+`aisbox env set` after creation.

@@ -1,8 +1,8 @@
-# aienv Implementation Plan
+# aisbox Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a Python CLI named `aienv` that creates isolated Docker-backed AI agent environments for Claude and Codex.
+**Goal:** Build a Python CLI named `aisbox` that creates isolated Docker-backed AI agent environments for Claude and Codex.
 
 **Architecture:** The CLI is a Typer application with thin command handlers. Persistent environment state is stored as JSON under an injectable home directory, Docker integration is isolated behind command-building and subprocess functions, and agent-specific behavior is captured in data-only agent definitions.
 
@@ -14,15 +14,15 @@
 
 - Create `pyproject.toml`: package metadata, dependencies, console script, pytest config.
 - Create `README.md`: install and v1 usage documentation.
-- Create `src/aienv/__init__.py`: package version.
-- Create `src/aienv/cli.py`: Typer CLI, argument parsing, command output.
-- Create `src/aienv/commands.py`: command orchestration using store, agents, and Docker modules.
-- Create `src/aienv/models.py`: dataclasses for environment state, mounts, and agent definitions.
-- Create `src/aienv/validation.py`: name, env var, mount alias, and path validation.
-- Create `src/aienv/store.py`: JSON persistence under `~/.aienv` or test override.
-- Create `src/aienv/agents.py`: Claude and Codex definitions plus Dockerfile templates.
-- Create `src/aienv/docker.py`: Docker command construction and subprocess execution.
-- Create `src/aienv/errors.py`: user-facing exception types.
+- Create `src/aisbox/__init__.py`: package version.
+- Create `src/aisbox/cli.py`: Typer CLI, argument parsing, command output.
+- Create `src/aisbox/commands.py`: command orchestration using store, agents, and Docker modules.
+- Create `src/aisbox/models.py`: dataclasses for environment state, mounts, and agent definitions.
+- Create `src/aisbox/validation.py`: name, env var, mount alias, and path validation.
+- Create `src/aisbox/store.py`: JSON persistence under `~/.aisbox` or test override.
+- Create `src/aisbox/agents.py`: Claude and Codex definitions plus Dockerfile templates.
+- Create `src/aisbox/docker.py`: Docker command construction and subprocess execution.
+- Create `src/aisbox/errors.py`: user-facing exception types.
 - Create `tests/conftest.py`: shared temporary home fixtures.
 - Create `tests/test_validation.py`: validation unit tests.
 - Create `tests/test_store.py`: persistence unit tests.
@@ -39,7 +39,7 @@
 - All Docker subprocess calls must pass argument lists, not shell strings.
 - Do not prefix Docker commands with `sudo`. Docker must be usable by the current user.
 - Tests must not require Docker, Claude, Codex, network access, or real credentials.
-- Use `AIENV_HOME` as a testable override for the state root. Default to `~/.aienv`.
+- Use `AISBOX_HOME` as a testable override for the state root. Default to `~/.aisbox`.
 - Never read, copy, or mount host `~/.claude` or `~/.codex`.
 - Use ASCII in source files.
 
@@ -50,9 +50,9 @@
 **Files:**
 - Create: `pyproject.toml`
 - Create: `README.md`
-- Create: `src/aienv/__init__.py`
-- Create: `src/aienv/cli.py`
-- Create: `src/aienv/errors.py`
+- Create: `src/aisbox/__init__.py`
+- Create: `src/aisbox/cli.py`
+- Create: `src/aisbox/errors.py`
 - Create: `tests/test_cli_core.py`
 
 - [ ] **Step 1: Write failing CLI smoke tests**
@@ -62,7 +62,7 @@ Create `tests/test_cli_core.py`:
 ```python
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
@@ -72,11 +72,11 @@ def test_cli_version():
     result = runner.invoke(app, ["--version"])
 
     assert result.exit_code == 0
-    assert "aienv" in result.stdout
+    assert "aisbox" in result.stdout
 
 
 def test_list_empty_environment_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
 
     result = runner.invoke(app, ["list"])
 
@@ -104,7 +104,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aienv"
+name = "aisbox"
 version = "0.1.0"
 description = "Run AI coding agents inside isolated Docker environments"
 readme = "README.md"
@@ -119,7 +119,7 @@ dev = [
 ]
 
 [project.scripts]
-aienv = "aienv.cli:main"
+aisbox = "aisbox.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -132,9 +132,9 @@ testpaths = ["tests"]
 Create `README.md`:
 
 ```markdown
-# aienv
+# aisbox
 
-`aienv` runs AI coding agents inside isolated Docker environments.
+`aisbox` runs AI coding agents inside isolated Docker environments.
 
 ## Development
 
@@ -154,20 +154,20 @@ pipx install .
 
 - [ ] **Step 4: Add minimal CLI**
 
-Create `src/aienv/__init__.py`:
+Create `src/aisbox/__init__.py`:
 
 ```python
 __version__ = "0.1.0"
 ```
 
-Create `src/aienv/errors.py`:
+Create `src/aisbox/errors.py`:
 
 ```python
-class AienvError(Exception):
-    """Base class for user-facing aienv errors."""
+class AisboxError(Exception):
+    """Base class for user-facing aisbox errors."""
 ```
 
-Create `src/aienv/cli.py`:
+Create `src/aisbox/cli.py`:
 
 ```python
 from __future__ import annotations
@@ -176,7 +176,7 @@ from typing import Optional
 
 import typer
 
-from aienv import __version__
+from aisbox import __version__
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -184,7 +184,7 @@ app = typer.Typer(no_args_is_help=True)
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"aienv {__version__}")
+        typer.echo(f"aisbox {__version__}")
         raise typer.Exit()
 
 
@@ -227,8 +227,8 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add pyproject.toml README.md src/aienv tests/test_cli_core.py
-git commit -m "feat: scaffold aienv cli package"
+git add pyproject.toml README.md src/aisbox tests/test_cli_core.py
+git commit -m "feat: scaffold aisbox cli package"
 ```
 
 ---
@@ -236,8 +236,8 @@ git commit -m "feat: scaffold aienv cli package"
 ### Task 2: Validation And State Models
 
 **Files:**
-- Create: `src/aienv/models.py`
-- Create: `src/aienv/validation.py`
+- Create: `src/aisbox/models.py`
+- Create: `src/aisbox/validation.py`
 - Create: `tests/test_validation.py`
 
 - [ ] **Step 1: Write failing validation tests**
@@ -247,8 +247,8 @@ Create `tests/test_validation.py`:
 ```python
 import pytest
 
-from aienv.errors import AienvError
-from aienv.validation import (
+from aisbox.errors import AisboxError
+from aisbox.validation import (
     parse_env_assignment,
     validate_env_name,
     validate_mount_alias,
@@ -262,7 +262,7 @@ def test_validate_env_name_accepts_safe_names(name):
 
 @pytest.mark.parametrize("name", ["", "../demo", "demo/name", "demo name", "$demo"])
 def test_validate_env_name_rejects_unsafe_names(name):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         validate_env_name(name)
 
 
@@ -272,7 +272,7 @@ def test_parse_env_assignment():
 
 @pytest.mark.parametrize("assignment", ["TOKEN", "=value", "BAD-KEY=value", ""])
 def test_parse_env_assignment_rejects_invalid_values(assignment):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         parse_env_assignment(assignment)
 
 
@@ -283,7 +283,7 @@ def test_validate_mount_alias_accepts_relative_name(alias):
 
 @pytest.mark.parametrize("alias", ["", "/src", "../src", "src/repo", "src..repo"])
 def test_validate_mount_alias_rejects_path_like_values(alias):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         validate_mount_alias(alias)
 ```
 
@@ -299,7 +299,7 @@ Expected: FAIL because validation functions do not exist.
 
 - [ ] **Step 3: Add models and validation**
 
-Create `src/aienv/models.py`:
+Create `src/aisbox/models.py`:
 
 ```python
 from __future__ import annotations
@@ -335,14 +335,14 @@ class AgentDefinition:
     shell_command: list[str] = field(default_factory=lambda: ["/bin/bash"])
 ```
 
-Create `src/aienv/validation.py`:
+Create `src/aisbox/validation.py`:
 
 ```python
 from __future__ import annotations
 
 import re
 
-from aienv.errors import AienvError
+from aisbox.errors import AisboxError
 
 
 ENV_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]+$")
@@ -351,22 +351,22 @@ ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def validate_env_name(name: str) -> str:
     if not ENV_NAME_RE.match(name):
-        raise AienvError("Environment name must match [a-zA-Z0-9_.-]+")
+        raise AisboxError("Environment name must match [a-zA-Z0-9_.-]+")
     return name
 
 
 def parse_env_assignment(assignment: str) -> tuple[str, str]:
     if "=" not in assignment:
-        raise AienvError("Environment variable must be KEY=VALUE")
+        raise AisboxError("Environment variable must be KEY=VALUE")
     key, value = assignment.split("=", 1)
     if not key or not ENV_KEY_RE.match(key):
-        raise AienvError("Environment variable key must match [A-Za-z_][A-Za-z0-9_]*")
+        raise AisboxError("Environment variable key must match [A-Za-z_][A-Za-z0-9_]*")
     return key, value
 
 
 def validate_mount_alias(alias: str) -> str:
     if not alias or alias.startswith("/") or "/" in alias or ".." in alias:
-        raise AienvError("Mount alias must be a relative name under /workspace")
+        raise AisboxError("Mount alias must be a relative name under /workspace")
     return validate_env_name(alias)
 ```
 
@@ -383,7 +383,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/aienv/models.py src/aienv/validation.py tests/test_validation.py
+git add src/aisbox/models.py src/aisbox/validation.py tests/test_validation.py
 git commit -m "feat: add validation and state models"
 ```
 
@@ -392,7 +392,7 @@ git commit -m "feat: add validation and state models"
 ### Task 3: Environment Store
 
 **Files:**
-- Create: `src/aienv/store.py`
+- Create: `src/aisbox/store.py`
 - Create: `tests/conftest.py`
 - Create: `tests/test_store.py`
 
@@ -405,9 +405,9 @@ import pytest
 
 
 @pytest.fixture
-def aienv_home(tmp_path, monkeypatch):
-    home = tmp_path / "aienv-home"
-    monkeypatch.setenv("AIENV_HOME", str(home))
+def aisbox_home(tmp_path, monkeypatch):
+    home = tmp_path / "aisbox-home"
+    monkeypatch.setenv("AISBOX_HOME", str(home))
     return home
 ```
 
@@ -418,9 +418,9 @@ from pathlib import Path
 
 import pytest
 
-from aienv.errors import AienvError
-from aienv.models import Environment, Mount
-from aienv.store import EnvironmentStore
+from aisbox.errors import AisboxError
+from aisbox.models import Environment, Mount
+from aisbox.store import EnvironmentStore
 
 
 def make_env(workspace: Path) -> Environment:
@@ -430,12 +430,12 @@ def make_env(workspace: Path) -> Environment:
         env={"TOKEN": "abc"},
         workspace=str(workspace),
         mounts=[Mount(source=str(workspace / "src"), alias="src")],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 
 
-def test_save_and_load_environment(aienv_home, tmp_path):
+def test_save_and_load_environment(aisbox_home, tmp_path):
     store = EnvironmentStore()
     env = make_env(tmp_path)
 
@@ -443,17 +443,17 @@ def test_save_and_load_environment(aienv_home, tmp_path):
     loaded = store.load("demo1")
 
     assert loaded == env
-    assert (aienv_home / "demo1" / "environment.json").exists()
+    assert (aisbox_home / "demo1" / "environment.json").exists()
 
 
-def test_load_missing_environment_raises(aienv_home):
+def test_load_missing_environment_raises(aisbox_home):
     store = EnvironmentStore()
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.load("missing")
 
 
-def test_list_environments_sorts_by_name(aienv_home, tmp_path):
+def test_list_environments_sorts_by_name(aisbox_home, tmp_path):
     store = EnvironmentStore()
     store.save(make_env(tmp_path))
     env2 = make_env(tmp_path)
@@ -463,13 +463,13 @@ def test_list_environments_sorts_by_name(aienv_home, tmp_path):
     assert [env.name for env in store.list()] == ["alpha", "demo1"]
 
 
-def test_delete_environment_removes_directory(aienv_home, tmp_path):
+def test_delete_environment_removes_directory(aisbox_home, tmp_path):
     store = EnvironmentStore()
     store.save(make_env(tmp_path))
 
     store.delete("demo1")
 
-    assert not (aienv_home / "demo1").exists()
+    assert not (aisbox_home / "demo1").exists()
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -484,7 +484,7 @@ Expected: FAIL because `EnvironmentStore` does not exist.
 
 - [ ] **Step 3: Implement JSON store**
 
-Create `src/aienv/store.py`:
+Create `src/aisbox/store.py`:
 
 ```python
 from __future__ import annotations
@@ -495,14 +495,14 @@ import shutil
 from dataclasses import asdict
 from pathlib import Path
 
-from aienv.errors import AienvError
-from aienv.models import Environment, Mount
-from aienv.validation import validate_env_name
+from aisbox.errors import AisboxError
+from aisbox.models import Environment, Mount
+from aisbox.validation import validate_env_name
 
 
 class EnvironmentStore:
     def __init__(self, root: Path | None = None) -> None:
-        self.root = root or Path(os.environ.get("AIENV_HOME", "~/.aienv")).expanduser()
+        self.root = root or Path(os.environ.get("AISBOX_HOME", "~/.aisbox")).expanduser()
 
     def env_dir(self, name: str) -> Path:
         return self.root / validate_env_name(name)
@@ -532,7 +532,7 @@ class EnvironmentStore:
     def load(self, name: str) -> Environment:
         path = self.env_dir(name) / "environment.json"
         if not path.exists():
-            raise AienvError(f"Environment does not exist: {name}")
+            raise AisboxError(f"Environment does not exist: {name}")
         payload = json.loads(path.read_text(encoding="utf-8"))
         payload["mounts"] = [Mount(**mount) for mount in payload.get("mounts", [])]
         return Environment(**payload)
@@ -550,7 +550,7 @@ class EnvironmentStore:
     def delete(self, name: str) -> None:
         path = self.env_dir(name)
         if not path.exists():
-            raise AienvError(f"Environment does not exist: {name}")
+            raise AisboxError(f"Environment does not exist: {name}")
         shutil.rmtree(path)
 ```
 
@@ -567,7 +567,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/aienv/store.py tests/conftest.py tests/test_store.py
+git add src/aisbox/store.py tests/conftest.py tests/test_store.py
 git commit -m "feat: persist environment state"
 ```
 
@@ -576,8 +576,8 @@ git commit -m "feat: persist environment state"
 ### Task 4: Agent Definitions And Docker Build
 
 **Files:**
-- Create: `src/aienv/agents.py`
-- Create: `src/aienv/docker.py`
+- Create: `src/aisbox/agents.py`
+- Create: `src/aisbox/docker.py`
 - Create: `tests/test_agents.py`
 - Create: `tests/test_docker.py`
 
@@ -588,8 +588,8 @@ Create `tests/test_agents.py`:
 ```python
 import pytest
 
-from aienv.agents import get_agent, supported_agents
-from aienv.errors import AienvError
+from aisbox.agents import get_agent, supported_agents
+from aisbox.errors import AisboxError
 
 
 def test_supported_agents_include_claude_and_codex():
@@ -600,13 +600,13 @@ def test_get_agent_returns_claude_definition():
     agent = get_agent("claude")
 
     assert agent.name == "claude"
-    assert agent.image == "aienv/claude:latest"
-    assert agent.config_path == "/home/aienv/.claude"
+    assert agent.image == "aisbox/claude:latest"
+    assert agent.config_path == "/home/aisbox/.claude"
     assert "npm install -g @anthropic-ai/claude-code" in agent.dockerfile
 
 
 def test_get_agent_rejects_unknown_agent():
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         get_agent("unknown")
 ```
 
@@ -616,9 +616,9 @@ Create `tests/test_docker.py`:
 from pathlib import Path
 from unittest.mock import Mock
 
-from aienv.agents import get_agent
-from aienv.docker import build_image, docker_available
-from aienv.models import Environment
+from aisbox.agents import get_agent
+from aisbox.docker import build_image, docker_available
+from aisbox.models import Environment
 
 
 def test_build_image_invokes_docker_build_with_stdin(tmp_path):
@@ -629,7 +629,7 @@ def test_build_image_invokes_docker_build_with_stdin(tmp_path):
 
     runner.assert_called_once()
     args, kwargs = runner.call_args
-    assert args[0] == ["docker", "build", "-t", "aienv/claude:latest", "-"]
+    assert args[0] == ["docker", "build", "-t", "aisbox/claude:latest", "-"]
     assert kwargs["input"] == agent.dockerfile
     assert kwargs["text"] is True
     assert kwargs["check"] is True
@@ -654,13 +654,13 @@ Expected: FAIL because agent and Docker modules do not exist.
 
 - [ ] **Step 3: Add agent definitions**
 
-Create `src/aienv/agents.py`:
+Create `src/aisbox/agents.py`:
 
 ```python
 from __future__ import annotations
 
-from aienv.errors import AienvError
-from aienv.models import AgentDefinition
+from aisbox.errors import AisboxError
+from aisbox.models import AgentDefinition
 
 
 BASE_DOCKERFILE_PREFIX = """FROM ubuntu:24.04
@@ -669,8 +669,8 @@ RUN apt-get update \\
     && apt-get install -y --no-install-recommends \\
        bash ca-certificates curl git nodejs npm \\
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -m -s /bin/bash aienv
-USER aienv
+RUN useradd -m -s /bin/bash aisbox
+USER aisbox
 WORKDIR /workspace
 """
 
@@ -678,8 +678,8 @@ WORKDIR /workspace
 AGENTS = {
     "claude": AgentDefinition(
         name="claude",
-        image="aienv/claude:latest",
-        config_path="/home/aienv/.claude",
+        image="aisbox/claude:latest",
+        config_path="/home/aisbox/.claude",
         dockerfile=BASE_DOCKERFILE_PREFIX
         + "RUN npm install -g @anthropic-ai/claude-code\n",
         run_command=["claude", "-p"],
@@ -687,8 +687,8 @@ AGENTS = {
     ),
     "codex": AgentDefinition(
         name="codex",
-        image="aienv/codex:latest",
-        config_path="/home/aienv/.codex",
+        image="aisbox/codex:latest",
+        config_path="/home/aisbox/.codex",
         dockerfile=BASE_DOCKERFILE_PREFIX + "RUN npm install -g @openai/codex\n",
         run_command=["codex", "exec"],
         attach_command=["codex"],
@@ -704,12 +704,12 @@ def get_agent(name: str) -> AgentDefinition:
     try:
         return AGENTS[name]
     except KeyError as exc:
-        raise AienvError(f"Unsupported agent: {name}") from exc
+        raise AisboxError(f"Unsupported agent: {name}") from exc
 ```
 
 - [ ] **Step 4: Add Docker build helpers**
 
-Create `src/aienv/docker.py`:
+Create `src/aisbox/docker.py`:
 
 ```python
 from __future__ import annotations
@@ -717,7 +717,7 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Callable
 
-from aienv.models import AgentDefinition
+from aisbox.models import AgentDefinition
 
 
 Runner = Callable[..., subprocess.CompletedProcess]
@@ -762,7 +762,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/aienv/agents.py src/aienv/docker.py tests/test_agents.py tests/test_docker.py
+git add src/aisbox/agents.py src/aisbox/docker.py tests/test_agents.py tests/test_docker.py
 git commit -m "feat: define agents and docker image builds"
 ```
 
@@ -771,8 +771,8 @@ git commit -m "feat: define agents and docker image builds"
 ### Task 5: Core Environment Commands
 
 **Files:**
-- Create: `src/aienv/commands.py`
-- Modify: `src/aienv/cli.py`
+- Create: `src/aisbox/commands.py`
+- Modify: `src/aisbox/cli.py`
 - Modify: `tests/test_cli_core.py`
 
 - [ ] **Step 1: Extend failing CLI tests**
@@ -782,7 +782,7 @@ Replace `tests/test_cli_core.py` with:
 ```python
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
@@ -792,11 +792,11 @@ def test_cli_version():
     result = runner.invoke(app, ["--version"])
 
     assert result.exit_code == 0
-    assert "aienv" in result.stdout
+    assert "aisbox" in result.stdout
 
 
 def test_list_empty_environment_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
 
     result = runner.invoke(app, ["list"])
 
@@ -805,11 +805,11 @@ def test_list_empty_environment_home(tmp_path, monkeypatch):
 
 
 def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
-    home = tmp_path / "aienv-home"
+    home = tmp_path / "aisbox-home"
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    monkeypatch.setenv("AIENV_HOME", str(home))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(home))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
 
     create = runner.invoke(
         app,
@@ -840,8 +840,8 @@ def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
 
 
 def test_delete_environment_with_force(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
 
     result = runner.invoke(app, ["delete", "-n", "demo1", "--force"])
@@ -863,7 +863,7 @@ Expected: FAIL because create, inspect, and delete are not implemented.
 
 - [ ] **Step 3: Implement command orchestration**
 
-Create `src/aienv/commands.py`:
+Create `src/aisbox/commands.py`:
 
 ```python
 from __future__ import annotations
@@ -871,12 +871,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aienv.agents import get_agent
-from aienv.docker import build_image
-from aienv.errors import AienvError
-from aienv.models import Environment
-from aienv.store import EnvironmentStore
-from aienv.validation import parse_env_assignment, validate_env_name
+from aisbox.agents import get_agent
+from aisbox.docker import build_image
+from aisbox.errors import AisboxError
+from aisbox.models import Environment
+from aisbox.store import EnvironmentStore
+from aisbox.validation import parse_env_assignment, validate_env_name
 
 
 def create_environment(
@@ -889,13 +889,13 @@ def create_environment(
     store = store or EnvironmentStore()
     name = validate_env_name(name)
     if store.exists(name):
-        raise AienvError(f"Environment already exists: {name}")
+        raise AisboxError(f"Environment already exists: {name}")
     agent = get_agent(agent_name)
     env = dict(parse_env_assignment(item) for item in env_assignments)
     store.create_dirs(name, agent.name)
     workspace_path = Path(workspace).expanduser().resolve() if workspace else store.default_workspace(name)
     if not workspace_path.exists() or not workspace_path.is_dir():
-        raise AienvError(f"Workspace path does not exist: {workspace_path}")
+        raise AisboxError(f"Workspace path does not exist: {workspace_path}")
     created = Environment(
         name=name,
         agent=agent.name,
@@ -924,7 +924,7 @@ def delete_environment(name: str, store: EnvironmentStore | None = None) -> None
 
 - [ ] **Step 4: Update CLI commands**
 
-Replace `src/aienv/cli.py` with:
+Replace `src/aisbox/cli.py` with:
 
 ```python
 from __future__ import annotations
@@ -933,14 +933,14 @@ from typing import Optional
 
 import typer
 
-from aienv import __version__
-from aienv.commands import (
+from aisbox import __version__
+from aisbox.commands import (
     create_environment,
     delete_environment,
     inspect_environment,
     list_environments,
 )
-from aienv.errors import AienvError
+from aisbox.errors import AisboxError
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -948,11 +948,11 @@ app = typer.Typer(no_args_is_help=True)
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"aienv {__version__}")
+        typer.echo(f"aisbox {__version__}")
         raise typer.Exit()
 
 
-def handle_error(exc: AienvError) -> None:
+def handle_error(exc: AisboxError) -> None:
     typer.echo(f"Error: {exc}", err=True)
     raise typer.Exit(code=1)
 
@@ -979,7 +979,7 @@ def create(
 ) -> None:
     try:
         created = create_environment(name, agent, env, workspace)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Created {created.name}")
 
@@ -998,7 +998,7 @@ def list_envs() -> None:
 def inspect(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         env = inspect_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"name: {env.name}")
     typer.echo(f"agent: {env.agent}")
@@ -1021,7 +1021,7 @@ def delete(
         raise typer.Exit(code=1)
     try:
         delete_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Deleted {name}")
 
@@ -1047,7 +1047,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/aienv/commands.py src/aienv/cli.py tests/test_cli_core.py
+git add src/aisbox/commands.py src/aisbox/cli.py tests/test_cli_core.py
 git commit -m "feat: add core environment commands"
 ```
 
@@ -1056,8 +1056,8 @@ git commit -m "feat: add core environment commands"
 ### Task 6: Mount And Environment Variable Mutation
 
 **Files:**
-- Modify: `src/aienv/commands.py`
-- Modify: `src/aienv/cli.py`
+- Modify: `src/aisbox/commands.py`
+- Modify: `src/aisbox/cli.py`
 - Create: `tests/test_cli_mutation.py`
 
 - [ ] **Step 1: Write failing mutation tests**
@@ -1067,20 +1067,20 @@ Create `tests/test_cli_mutation.py`:
 ```python
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
 
 
 def create_demo(monkeypatch):
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
     assert result.exit_code == 0
 
 
 def test_mount_and_unmount(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     source = tmp_path / "source"
     source.mkdir()
     create_demo(monkeypatch)
@@ -1099,7 +1099,7 @@ def test_mount_and_unmount(tmp_path, monkeypatch):
 
 
 def test_env_set_and_unset(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
     set_result = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=abc"])
@@ -1128,11 +1128,11 @@ Expected: FAIL because mutation commands do not exist.
 
 - [ ] **Step 3: Add mutation functions**
 
-Append to `src/aienv/commands.py`:
+Append to `src/aisbox/commands.py`:
 
 ```python
-from aienv.models import Mount
-from aienv.validation import validate_mount_alias
+from aisbox.models import Mount
+from aisbox.validation import validate_mount_alias
 
 
 def add_mount(
@@ -1146,9 +1146,9 @@ def add_mount(
     alias = validate_mount_alias(alias)
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists() or not source_path.is_dir():
-        raise AienvError(f"Mount source path does not exist: {source_path}")
+        raise AisboxError(f"Mount source path does not exist: {source_path}")
     if any(mount.alias == alias for mount in env.mounts):
-        raise AienvError(f"Mount alias already exists: {alias}")
+        raise AisboxError(f"Mount alias already exists: {alias}")
     mount = Mount(source=str(source_path), alias=alias)
     env.mounts.append(mount)
     store.save(env)
@@ -1162,7 +1162,7 @@ def remove_mount(name: str, alias: str, store: EnvironmentStore | None = None) -
     original_count = len(env.mounts)
     env.mounts = [mount for mount in env.mounts if mount.alias != alias]
     if len(env.mounts) == original_count:
-        raise AienvError(f"Mount alias does not exist: {alias}")
+        raise AisboxError(f"Mount alias does not exist: {alias}")
     store.save(env)
 
 
@@ -1183,17 +1183,17 @@ def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) ->
     store = store or EnvironmentStore()
     env = store.load(name)
     if key not in env.env:
-        raise AienvError(f"Environment variable is not set: {key}")
+        raise AisboxError(f"Environment variable is not set: {key}")
     del env.env[key]
     store.save(env)
 ```
 
 - [ ] **Step 4: Add CLI subcommands**
 
-Modify imports in `src/aienv/cli.py` to include:
+Modify imports in `src/aisbox/cli.py` to include:
 
 ```python
-from aienv.commands import (
+from aisbox.commands import (
     add_mount,
     create_environment,
     delete_environment,
@@ -1223,7 +1223,7 @@ def mount(
 ) -> None:
     try:
         created = add_mount(name, source, alias)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Mounted {created.alias}")
 
@@ -1235,7 +1235,7 @@ def unmount(
 ) -> None:
     try:
         remove_mount(name, alias)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unmounted {alias}")
 
@@ -1247,7 +1247,7 @@ def env_set(
 ) -> None:
     try:
         key = set_env_var(name, assignment)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Set {key}")
 
@@ -1259,7 +1259,7 @@ def env_unset(
 ) -> None:
     try:
         unset_env_var(name, key)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unset {key}")
 ```
@@ -1277,7 +1277,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/aienv/commands.py src/aienv/cli.py tests/test_cli_mutation.py
+git add src/aisbox/commands.py src/aisbox/cli.py tests/test_cli_mutation.py
 git commit -m "feat: mutate environment mounts and variables"
 ```
 
@@ -1286,9 +1286,9 @@ git commit -m "feat: mutate environment mounts and variables"
 ### Task 7: Runtime Docker Commands
 
 **Files:**
-- Modify: `src/aienv/docker.py`
-- Modify: `src/aienv/commands.py`
-- Modify: `src/aienv/cli.py`
+- Modify: `src/aisbox/docker.py`
+- Modify: `src/aisbox/commands.py`
+- Modify: `src/aisbox/cli.py`
 - Create: `tests/test_cli_runtime.py`
 
 - [ ] **Step 1: Write failing runtime tests**
@@ -1300,15 +1300,15 @@ from unittest.mock import Mock
 
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
 
 
 def setup_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude", "-e", "TOKEN=abc"])
     assert result.exit_code == 0
 
@@ -1316,7 +1316,7 @@ def setup_env(tmp_path, monkeypatch):
 def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
-    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
 
     result = runner.invoke(app, ["run", "-n", "demo1", "--", "hello"])
 
@@ -1332,7 +1332,7 @@ def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
 def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
-    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
 
     attach = runner.invoke(app, ["attach", "-n", "demo1"])
     shell = runner.invoke(app, ["shell", "-n", "demo1"])
@@ -1346,7 +1346,7 @@ def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
 def test_rebuild_invokes_image_build_for_stored_agent(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     build_mock = Mock()
-    monkeypatch.setattr("aienv.commands.build_image", build_mock)
+    monkeypatch.setattr("aisbox.commands.build_image", build_mock)
 
     result = runner.invoke(app, ["rebuild", "-n", "demo1"])
 
@@ -1367,10 +1367,10 @@ Expected: FAIL because runtime commands do not exist.
 
 - [ ] **Step 3: Add Docker run command construction**
 
-Append to `src/aienv/docker.py`:
+Append to `src/aisbox/docker.py`:
 
 ```python
-from aienv.models import Environment
+from aisbox.models import Environment
 
 
 def container_command(
@@ -1416,10 +1416,10 @@ def run_container(
 
 - [ ] **Step 4: Add runtime command orchestration**
 
-Append to `src/aienv/commands.py`:
+Append to `src/aisbox/commands.py`:
 
 ```python
-from aienv.docker import run_container
+from aisbox.docker import run_container
 
 
 def run_environment(
@@ -1446,7 +1446,7 @@ def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> Non
 
 - [ ] **Step 5: Add runtime CLI commands**
 
-Modify imports in `src/aienv/cli.py` to include:
+Modify imports in `src/aisbox/cli.py` to include:
 
 ```python
     rebuild_environment,
@@ -1464,7 +1464,7 @@ def run(
     prompt = " ".join(ctx.args)
     try:
         run_environment(name, "run", prompt)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -1472,7 +1472,7 @@ def run(
 def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         run_environment(name, "attach")
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -1480,7 +1480,7 @@ def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
 def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         run_environment(name, "shell")
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -1488,7 +1488,7 @@ def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
 def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         rebuild_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Rebuilt {name}")
 ```
@@ -1498,9 +1498,9 @@ def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
 Append to `tests/test_docker.py`:
 
 ```python
-from aienv.agents import get_agent
-from aienv.docker import container_command
-from aienv.models import Environment, Mount
+from aisbox.agents import get_agent
+from aisbox.docker import container_command
+from aisbox.models import Environment, Mount
 
 
 def test_container_command_includes_mounts_env_and_prompt():
@@ -1510,7 +1510,7 @@ def test_container_command_includes_mounts_env_and_prompt():
         env={"TOKEN": "abc"},
         workspace="/tmp/workspace",
         mounts=[Mount(source="/tmp/src", alias="src")],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 
@@ -1519,7 +1519,7 @@ def test_container_command_includes_mounts_env_and_prompt():
     assert command[:4] == ["docker", "run", "--rm", "-w"]
     assert "-v" in command
     assert "/tmp/workspace:/workspace" in command
-    assert "/tmp/config/claude:/home/aienv/.claude" in command
+    assert "/tmp/config/claude:/home/aisbox/.claude" in command
     assert "/tmp/src:/workspace/src" in command
     assert "TOKEN=abc" in command
     assert command[-2:] == ["-p", "hello"]
@@ -1538,7 +1538,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/aienv/docker.py src/aienv/commands.py src/aienv/cli.py tests/test_cli_runtime.py tests/test_docker.py
+git add src/aisbox/docker.py src/aisbox/commands.py src/aisbox/cli.py tests/test_cli_runtime.py tests/test_docker.py
 git commit -m "feat: run agent containers"
 ```
 
@@ -1547,8 +1547,8 @@ git commit -m "feat: run agent containers"
 ### Task 8: Doctor Diagnostics
 
 **Files:**
-- Modify: `src/aienv/commands.py`
-- Modify: `src/aienv/cli.py`
+- Modify: `src/aisbox/commands.py`
+- Modify: `src/aisbox/cli.py`
 - Create: `tests/test_doctor.py`
 
 - [ ] **Step 1: Write failing doctor tests**
@@ -1558,15 +1558,15 @@ Create `tests/test_doctor.py`:
 ```python
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
 
 
 def test_doctor_success(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.docker_available", lambda: True)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
 
     result = runner.invoke(app, ["doctor"])
 
@@ -1576,8 +1576,8 @@ def test_doctor_success(tmp_path, monkeypatch):
 
 
 def test_doctor_fails_when_docker_unavailable_or_not_permitted(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.docker_available", lambda: False)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.docker_available", lambda: False)
 
     result = runner.invoke(app, ["doctor"])
 
@@ -1597,13 +1597,13 @@ Expected: FAIL because doctor is not implemented.
 
 - [ ] **Step 3: Implement doctor command data**
 
-Append to `src/aienv/commands.py`:
+Append to `src/aisbox/commands.py`:
 
 ```python
 from dataclasses import dataclass
 
-from aienv.agents import supported_agents
-from aienv.docker import docker_available
+from aisbox.agents import supported_agents
+from aisbox.docker import docker_available
 
 
 @dataclass(frozen=True)
@@ -1636,7 +1636,7 @@ def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
 
 - [ ] **Step 4: Add doctor CLI command**
 
-Modify imports in `src/aienv/cli.py` to include:
+Modify imports in `src/aisbox/cli.py` to include:
 
 ```python
     doctor as run_doctor,
@@ -1667,7 +1667,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/aienv/commands.py src/aienv/cli.py tests/test_doctor.py
+git add src/aisbox/commands.py src/aisbox/cli.py tests/test_doctor.py
 git commit -m "feat: add doctor diagnostics"
 ```
 
@@ -1691,13 +1691,13 @@ def test_readme_documents_primary_commands():
     readme = Path("README.md").read_text(encoding="utf-8")
 
     for command in [
-        "aienv create",
-        "aienv run",
-        "aienv attach",
-        "aienv shell",
-        "aienv mount",
-        "aienv env set",
-        "aienv doctor",
+        "aisbox create",
+        "aisbox run",
+        "aisbox attach",
+        "aisbox shell",
+        "aisbox mount",
+        "aisbox env set",
+        "aisbox doctor",
     ]:
         assert command in readme
 ```
@@ -1717,13 +1717,13 @@ Expected: FAIL because README usage docs are incomplete.
 Replace `README.md` with:
 
 ```markdown
-# aienv
+# aisbox
 
-`aienv` runs AI coding agents inside isolated Docker environments.
+`aisbox` runs AI coding agents inside isolated Docker environments.
 
-Each environment stores its own config and files under `~/.aienv/<name>`.
+Each environment stores its own config and files under `~/.aisbox/<name>`.
 Host `~/.claude` and `~/.codex` directories are not copied or mounted.
-Docker must be usable by the current user. `aienv` does not run Docker through `sudo`.
+Docker must be usable by the current user. `aisbox` does not run Docker through `sudo`.
 
 ## Install From This Repository
 
@@ -1743,27 +1743,27 @@ pytest
 ## Commands
 
 ```bash
-aienv create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
-aienv create -n demo1 -a codex --workspace /path/to/source
-aienv run -n demo1 -- "summarize this repository"
-aienv attach -n demo1
-aienv shell -n demo1
-aienv list
-aienv inspect -n demo1
-aienv rebuild -n demo1
-aienv mount -n demo1 /path/to/dir dir
-aienv unmount -n demo1 dir
-aienv env set -n demo1 KEY=VALUE
-aienv env unset -n demo1 KEY
-aienv doctor
-aienv delete -n demo1 --force
+aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
+aisbox create -n demo1 -a codex --workspace /path/to/source
+aisbox run -n demo1 -- "summarize this repository"
+aisbox attach -n demo1
+aisbox shell -n demo1
+aisbox list
+aisbox inspect -n demo1
+aisbox rebuild -n demo1
+aisbox mount -n demo1 /path/to/dir dir
+aisbox unmount -n demo1 dir
+aisbox env set -n demo1 KEY=VALUE
+aisbox env unset -n demo1 KEY
+aisbox doctor
+aisbox delete -n demo1 --force
 ```
 
 ## Authentication
 
-Authenticate interactively inside the container with `aienv attach -n demo1`,
+Authenticate interactively inside the container with `aisbox attach -n demo1`,
 or provide explicit API tokens with `-e KEY=VALUE` during create and
-`aienv env set` after creation.
+`aisbox env set` after creation.
 ```
 
 - [ ] **Step 4: Run full tests**
@@ -1782,7 +1782,7 @@ Run:
 
 ```bash
 python -m pip install -e ".[dev]"
-python -c "import aienv; print(aienv.__version__)"
+python -c "import aisbox; print(aisbox.__version__)"
 ```
 
 Expected: prints `0.1.0`.
@@ -1792,7 +1792,7 @@ Expected: prints `0.1.0`.
 Run:
 
 ```bash
-python -m aienv.cli --help
+python -m aisbox.cli --help
 ```
 
 Expected: shows Typer help with the `create`, `run`, `attach`, `shell`, `delete`, `list`, `inspect`, `rebuild`, `mount`, `unmount`, `env`, and `doctor` commands.
@@ -1801,7 +1801,7 @@ Expected: shows Typer help with the `create`, `run`, `attach`, `shell`, `delete`
 
 ```bash
 git add README.md tests/test_cli_core.py
-git commit -m "docs: document aienv usage"
+git commit -m "docs: document aisbox usage"
 ```
 
 ---

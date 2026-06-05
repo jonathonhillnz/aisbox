@@ -4,8 +4,8 @@ from typing import Optional
 
 import typer
 
-from aienv import __version__
-from aienv.commands import (
+from aisbox import __version__
+from aisbox.commands import (
     add_mount,
     create_environment,
     delete_environment,
@@ -18,7 +18,7 @@ from aienv.commands import (
     set_env_var,
     unset_env_var,
 )
-from aienv.errors import AienvError
+from aisbox.errors import AisboxError
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -28,11 +28,11 @@ app.add_typer(env_app, name="env")
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"aienv {__version__}")
+        typer.echo(f"aisbox {__version__}")
         raise typer.Exit()
 
 
-def handle_error(exc: AienvError) -> None:
+def handle_error(exc: AisboxError) -> None:
     typer.echo(f"Error: {exc}", err=True)
     raise typer.Exit(code=1)
 
@@ -59,7 +59,7 @@ def create(
 ) -> None:
     try:
         created = create_environment(name, agent, env, workspace)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Created {created.name}")
 
@@ -68,7 +68,7 @@ def create(
 def list_envs() -> None:
     try:
         envs = list_environments()
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     if not envs:
         typer.echo("No environments found")
@@ -81,7 +81,7 @@ def list_envs() -> None:
 def inspect(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         env = inspect_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"name: {env.name}")
     typer.echo(f"agent: {env.agent}")
@@ -104,7 +104,7 @@ def delete(
         raise typer.Exit(code=1)
     try:
         delete_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Deleted {name}")
 
@@ -117,7 +117,7 @@ def mount(
 ) -> None:
     try:
         created = add_mount(name, source, alias)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Mounted {created.alias}")
 
@@ -129,7 +129,7 @@ def unmount(
 ) -> None:
     try:
         remove_mount(name, alias)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unmounted {alias}")
 
@@ -141,7 +141,7 @@ def env_set(
 ) -> None:
     try:
         key = set_env_var(name, assignment)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Set {key}")
 
@@ -153,7 +153,7 @@ def env_unset(
 ) -> None:
     try:
         unset_env_var(name, key)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unset {key}")
 
@@ -166,7 +166,7 @@ def run(
     prompt = " ".join(ctx.args) if ctx.args else None
     try:
         run_environment(name, "run", prompt)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -174,7 +174,7 @@ def run(
 def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         run_environment(name, "attach")
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -182,7 +182,7 @@ def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
 def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         run_environment(name, "shell")
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
 
 
@@ -190,7 +190,7 @@ def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
 def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
     try:
         rebuild_environment(name)
-    except AienvError as exc:
+    except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Rebuilt {name}")
 

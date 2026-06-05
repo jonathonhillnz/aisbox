@@ -3,7 +3,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aienv"
+name = "aisbox"
 version = "0.1.0"
 description = "Run AI coding agents inside isolated Docker environments"
 readme = "README.md"
@@ -18,7 +18,7 @@ dev = [
 ]
 
 [project.scripts]
-aienv = "aienv.cli:main"
+aisbox = "aisbox.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

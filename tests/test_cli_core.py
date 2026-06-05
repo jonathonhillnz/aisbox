@@ -3,8 +3,8 @@ import subprocess
 
 from typer.testing import CliRunner
 
-from aienv.cli import app
-from aienv.errors import AienvError
+from aisbox.cli import app
+from aisbox.errors import AisboxError
 
 
 runner = CliRunner()
@@ -14,11 +14,11 @@ def test_cli_version():
     result = runner.invoke(app, ["--version"])
 
     assert result.exit_code == 0
-    assert "aienv" in result.stdout
+    assert "aisbox" in result.stdout
 
 
 def test_list_empty_environment_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
 
     result = runner.invoke(app, ["list"])
 
@@ -27,11 +27,11 @@ def test_list_empty_environment_home(tmp_path, monkeypatch):
 
 
 def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
-    home = tmp_path / "aienv-home"
+    home = tmp_path / "aisbox-home"
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    monkeypatch.setenv("AIENV_HOME", str(home))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(home))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
 
     create = runner.invoke(
         app,
@@ -62,9 +62,9 @@ def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
 
 
 def test_create_reports_docker_not_found_without_traceback(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     monkeypatch.setattr(
-        "aienv.commands.build_image",
+        "aisbox.commands.build_image",
         lambda agent: (_ for _ in ()).throw(FileNotFoundError("docker")),
     )
 
@@ -76,9 +76,9 @@ def test_create_reports_docker_not_found_without_traceback(tmp_path, monkeypatch
 
 
 def test_create_reports_docker_build_failure_without_traceback(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     monkeypatch.setattr(
-        "aienv.commands.build_image",
+        "aisbox.commands.build_image",
         lambda agent: (_ for _ in ()).throw(
             subprocess.CalledProcessError(returncode=1, cmd=["docker", "build"])
         ),
@@ -94,8 +94,8 @@ def test_create_reports_docker_build_failure_without_traceback(tmp_path, monkeyp
 
 def test_list_reports_store_errors(monkeypatch):
     monkeypatch.setattr(
-        "aienv.cli.list_environments",
-        lambda: (_ for _ in ()).throw(AienvError("boom")),
+        "aisbox.cli.list_environments",
+        lambda: (_ for _ in ()).throw(AisboxError("boom")),
     )
 
     result = runner.invoke(app, ["list"])
@@ -105,8 +105,8 @@ def test_list_reports_store_errors(monkeypatch):
 
 
 def test_delete_environment_with_force(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
 
     result = runner.invoke(app, ["delete", "-n", "demo1", "--force"])
@@ -117,15 +117,29 @@ def test_delete_environment_with_force(tmp_path, monkeypatch):
 
 
 def test_readme_documents_primary_commands():
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(
+        encoding="utf-8"
+    )
 
     for command in [
-        "aienv create",
-        "aienv run",
-        "aienv attach",
-        "aienv shell",
-        "aienv mount",
-        "aienv env set",
-        "aienv doctor",
+        "aisbox create",
+        "aisbox run",
+        "aisbox attach",
+        "aisbox shell",
+        "aisbox list",
+        "aisbox inspect",
+        "aisbox rebuild",
+        "aisbox mount",
+        "aisbox unmount",
+        "aisbox env set",
+        "aisbox env unset",
+        "aisbox doctor",
+        "aisbox delete",
     ]:
         assert command in readme
+
+    assert (
+        "Host `~/.claude` and `~/.codex` directories are not copied or mounted."
+        in readme
+    )
+    assert "does not run Docker through `sudo`" in readme

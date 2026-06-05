@@ -2,15 +2,15 @@ from unittest.mock import Mock
 
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
 
 
 def setup_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude", "-e", "TOKEN=abc"])
     assert result.exit_code == 0
 
@@ -18,7 +18,7 @@ def setup_env(tmp_path, monkeypatch):
 def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
-    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
 
     result = runner.invoke(app, ["run", "-n", "demo1", "--", "hello"])
 
@@ -34,7 +34,7 @@ def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
 def test_run_without_prompt_passes_none(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
-    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
 
     result = runner.invoke(app, ["run", "-n", "demo1"])
 
@@ -45,7 +45,7 @@ def test_run_without_prompt_passes_none(tmp_path, monkeypatch):
 def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
-    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
 
     attach = runner.invoke(app, ["attach", "-n", "demo1"])
     shell = runner.invoke(app, ["shell", "-n", "demo1"])
@@ -59,7 +59,7 @@ def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
 def test_rebuild_invokes_image_build_for_stored_agent(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     build_mock = Mock()
-    monkeypatch.setattr("aienv.commands.build_image", build_mock)
+    monkeypatch.setattr("aisbox.commands.build_image", build_mock)
 
     result = runner.invoke(app, ["rebuild", "-n", "demo1"])
 

@@ -1,9 +1,9 @@
 import subprocess
 from unittest.mock import Mock
 
-from aienv.agents import get_agent
-from aienv.docker import build_image, container_command, docker_available
-from aienv.models import Environment, Mount
+from aisbox.agents import get_agent
+from aisbox.docker import build_image, container_command, docker_available
+from aisbox.models import Environment, Mount
 
 
 def test_build_image_invokes_docker_build_with_stdin():
@@ -14,7 +14,7 @@ def test_build_image_invokes_docker_build_with_stdin():
 
     runner.assert_called_once()
     args, kwargs = runner.call_args
-    assert args[0] == ["docker", "build", "-t", "aienv/claude:latest", "-"]
+    assert args[0] == ["docker", "build", "-t", "aisbox/claude:latest", "-"]
     assert kwargs["input"] == agent.dockerfile
     assert kwargs["text"] is True
     assert kwargs["check"] is True
@@ -53,7 +53,7 @@ def test_container_command_includes_mounts_env_and_prompt():
         env={"TOKEN": "abc"},
         workspace="/tmp/workspace",
         mounts=[Mount(source="/tmp/src", alias="src")],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 
@@ -62,7 +62,7 @@ def test_container_command_includes_mounts_env_and_prompt():
     assert command[:4] == ["docker", "run", "--rm", "-w"]
     assert "-v" in command
     assert "/tmp/workspace:/workspace" in command
-    assert "/tmp/config/claude:/home/aienv/.claude" in command
+    assert "/tmp/config/claude:/home/aisbox/.claude" in command
     assert "/tmp/src:/workspace/src" in command
     assert "TOKEN=abc" in command
     assert command[-2:] == ["-p", "hello"]
@@ -76,14 +76,14 @@ def test_container_command_uses_stored_environment_image():
         env={},
         workspace="/tmp/workspace",
         mounts=[],
-        image="aienv/claude:pinned",
+        image="aisbox/claude:pinned",
         created_at="2026-06-05T00:00:00Z",
     )
 
     command = container_command(env, agent, "/tmp/config/claude", "run", "hello")
     image_index = command.index(agent.run_command[0]) - 1
 
-    assert command[image_index] == "aienv/claude:pinned"
+    assert command[image_index] == "aisbox/claude:pinned"
     assert agent.image not in command
 
 
@@ -95,7 +95,7 @@ def test_container_command_attach_mode_is_interactive_and_appends_attach_command
         env={},
         workspace="/tmp/workspace",
         mounts=[],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 
@@ -113,7 +113,7 @@ def test_container_command_shell_mode_is_interactive_and_appends_shell_command()
         env={},
         workspace="/tmp/workspace",
         mounts=[],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 

@@ -6,14 +6,14 @@ import shutil
 from dataclasses import asdict
 from pathlib import Path
 
-from aienv.errors import AienvError
-from aienv.models import Environment, Mount
-from aienv.validation import validate_env_name
+from aisbox.errors import AisboxError
+from aisbox.models import Environment, Mount
+from aisbox.validation import validate_env_name
 
 
 class EnvironmentStore:
     def __init__(self, root: Path | None = None) -> None:
-        self.root = Path(root or os.environ.get("AIENV_HOME", "~/.aienv")).expanduser()
+        self.root = Path(root or os.environ.get("AISBOX_HOME", "~/.aisbox")).expanduser()
 
     def env_dir(self, name: str) -> Path:
         return self.root / validate_env_name(name)
@@ -43,7 +43,7 @@ class EnvironmentStore:
     def load(self, name: str) -> Environment:
         path = self.env_dir(name) / "environment.json"
         if not path.exists():
-            raise AienvError(f"Environment does not exist: {name}")
+            raise AisboxError(f"Environment does not exist: {name}")
         payload = json.loads(path.read_text(encoding="utf-8"))
         payload["mounts"] = [Mount(**mount) for mount in payload.get("mounts", [])]
         return Environment(**payload)
@@ -60,5 +60,5 @@ class EnvironmentStore:
 
     def delete(self, name: str) -> None:
         if not self.exists(name):
-            raise AienvError(f"Environment does not exist: {name}")
+            raise AisboxError(f"Environment does not exist: {name}")
         shutil.rmtree(self.env_dir(name))

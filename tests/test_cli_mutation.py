@@ -1,19 +1,19 @@
 from typer.testing import CliRunner
 
-from aienv.cli import app
+from aisbox.cli import app
 
 
 runner = CliRunner()
 
 
 def create_demo(monkeypatch):
-    monkeypatch.setattr("aienv.commands.build_image", lambda agent: None)
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
     result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
     assert result.exit_code == 0
 
 
 def test_mount_and_unmount(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     source = tmp_path / "source"
     source.mkdir()
     create_demo(monkeypatch)
@@ -32,7 +32,7 @@ def test_mount_and_unmount(tmp_path, monkeypatch):
 
 
 def test_mount_rejects_file_path_and_missing_source(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     source_file = tmp_path / "source.txt"
     source_file.write_text("not a directory")
     missing_source = tmp_path / "missing"
@@ -52,7 +52,7 @@ def test_mount_rejects_file_path_and_missing_source(tmp_path, monkeypatch):
 
 
 def test_mount_rejects_duplicate_alias(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     source = tmp_path / "source"
     source.mkdir()
     create_demo(monkeypatch)
@@ -67,7 +67,7 @@ def test_mount_rejects_duplicate_alias(tmp_path, monkeypatch):
 
 
 def test_mount_rejects_path_like_aliases_through_cli(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     source = tmp_path / "source"
     source.mkdir()
     create_demo(monkeypatch)
@@ -81,7 +81,7 @@ def test_mount_rejects_path_like_aliases_through_cli(tmp_path, monkeypatch):
 
 
 def test_unmount_missing_alias_exits_nonzero_with_error(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
     result = runner.invoke(app, ["unmount", "-n", "demo1", "src"])
@@ -92,7 +92,7 @@ def test_unmount_missing_alias_exits_nonzero_with_error(tmp_path, monkeypatch):
 
 
 def test_env_set_and_unset(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
     set_result = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=abc"])
@@ -110,7 +110,7 @@ def test_env_set_and_unset(tmp_path, monkeypatch):
 
 
 def test_env_set_overwrites_existing_key_and_redacts_new_value(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
     first = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=abc"])
@@ -126,7 +126,7 @@ def test_env_set_overwrites_existing_key_and_redacts_new_value(tmp_path, monkeyp
 
 
 def test_env_unset_missing_key_exits_nonzero_with_error(tmp_path, monkeypatch):
-    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
     result = runner.invoke(app, ["env", "unset", "-n", "demo1", "TOKEN"])

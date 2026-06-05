@@ -1,7 +1,7 @@
 import pytest
 
-from aienv.errors import AienvError
-from aienv.validation import (
+from aisbox.errors import AisboxError
+from aisbox.validation import (
     parse_env_assignment,
     validate_env_name,
     validate_mount_alias,
@@ -15,7 +15,7 @@ def test_validate_env_name_accepts_safe_names(name):
 
 @pytest.mark.parametrize("name", ["", ".", "..", "../demo", "demo/name", "demo name", "$demo"])
 def test_validate_env_name_rejects_unsafe_names(name):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         validate_env_name(name)
 
 
@@ -25,7 +25,7 @@ def test_parse_env_assignment():
 
 @pytest.mark.parametrize("assignment", ["TOKEN", "=value", "BAD-KEY=value", ""])
 def test_parse_env_assignment_rejects_invalid_values(assignment):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         parse_env_assignment(assignment)
 
 
@@ -36,5 +36,5 @@ def test_validate_mount_alias_accepts_relative_name(alias):
 
 @pytest.mark.parametrize("alias", ["", "/src", "../src", "src/repo", "src..repo"])
 def test_validate_mount_alias_rejects_path_like_values(alias):
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         validate_mount_alias(alias)

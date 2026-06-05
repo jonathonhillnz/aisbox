@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from aienv.errors import AienvError
-from aienv.models import Environment, Mount
-from aienv.store import EnvironmentStore
+from aisbox.errors import AisboxError
+from aisbox.models import Environment, Mount
+from aisbox.store import EnvironmentStore
 
 
 def make_env(workspace: Path) -> Environment:
@@ -14,12 +14,12 @@ def make_env(workspace: Path) -> Environment:
         env={"TOKEN": "abc"},
         workspace=str(workspace),
         mounts=[Mount(source=str(workspace / "src"), alias="src")],
-        image="aienv/claude:latest",
+        image="aisbox/claude:latest",
         created_at="2026-06-05T00:00:00Z",
     )
 
 
-def test_save_and_load_environment(aienv_home, tmp_path):
+def test_save_and_load_environment(aisbox_home, tmp_path):
     store = EnvironmentStore()
     env = make_env(tmp_path)
 
@@ -27,86 +27,86 @@ def test_save_and_load_environment(aienv_home, tmp_path):
     loaded = store.load("demo1")
 
     assert loaded == env
-    assert (aienv_home / "demo1" / "environment.json").exists()
+    assert (aisbox_home / "demo1" / "environment.json").exists()
 
 
 def test_root_override_expands_user_home(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    store = EnvironmentStore(Path("~/some-aienv-test-root"))
+    store = EnvironmentStore(Path("~/some-aisbox-test-root"))
 
-    assert store.root == tmp_path / "some-aienv-test-root"
+    assert store.root == tmp_path / "some-aisbox-test-root"
 
 
 @pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])
 def test_config_dir_rejects_path_like_agent_values(agent):
     store = EnvironmentStore()
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.config_dir("demo1", agent)
 
 
 @pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])
 def test_create_dirs_rejects_path_like_agent_values_without_creating_dirs(
-    aienv_home, agent
+    aisbox_home, agent
 ):
     store = EnvironmentStore()
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.create_dirs("demo1", agent)
 
-    assert not (aienv_home / "demo1").exists()
-    assert not (aienv_home.parent / "agent").exists()
+    assert not (aisbox_home / "demo1").exists()
+    assert not (aisbox_home.parent / "agent").exists()
 
 
 @pytest.mark.parametrize("name", [".", ".."])
 def test_env_dir_rejects_dot_segment_names(name):
     store = EnvironmentStore()
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.env_dir(name)
 
 
 @pytest.mark.parametrize("name", [".", ".."])
-def test_save_rejects_dot_segment_names(aienv_home, tmp_path, name):
+def test_save_rejects_dot_segment_names(aisbox_home, tmp_path, name):
     store = EnvironmentStore()
     env = make_env(tmp_path)
     env.name = name
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.save(env)
 
-    assert not (aienv_home / "environment.json").exists()
-    assert not (aienv_home.parent / "environment.json").exists()
+    assert not (aisbox_home / "environment.json").exists()
+    assert not (aisbox_home.parent / "environment.json").exists()
 
 
 @pytest.mark.parametrize("name", [".", ".."])
 def test_delete_rejects_dot_segment_names_without_removing_paths(
-    aienv_home, monkeypatch, name
+    aisbox_home, monkeypatch, name
 ):
     store = EnvironmentStore()
-    aienv_home.mkdir(parents=True)
+    aisbox_home.mkdir(parents=True)
     removed_paths = []
 
     def fake_rmtree(path):
         removed_paths.append(path)
 
-    monkeypatch.setattr("aienv.store.shutil.rmtree", fake_rmtree)
+    monkeypatch.setattr("aisbox.store.shutil.rmtree", fake_rmtree)
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.delete(name)
 
     assert removed_paths == []
 
 
-def test_load_missing_environment_raises(aienv_home):
+def test_load_missing_environment_raises(aisbox_home):
     store = EnvironmentStore()
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.load("missing")
 
 
-def test_list_environments_sorts_by_name(aienv_home, tmp_path):
+def test_list_environments_sorts_by_name(aisbox_home, tmp_path):
     store = EnvironmentStore()
     store.save(make_env(tmp_path))
     env2 = make_env(tmp_path)
@@ -116,21 +116,21 @@ def test_list_environments_sorts_by_name(aienv_home, tmp_path):
     assert [env.name for env in store.list()] == ["alpha", "demo1"]
 
 
-def test_delete_environment_removes_directory(aienv_home, tmp_path):
+def test_delete_environment_removes_directory(aisbox_home, tmp_path):
     store = EnvironmentStore()
     store.save(make_env(tmp_path))
 
     store.delete("demo1")
 
-    assert not (aienv_home / "demo1").exists()
+    assert not (aisbox_home / "demo1").exists()
 
 
-def test_delete_partial_directory_without_state_file_raises(aienv_home):
+def test_delete_partial_directory_without_state_file_raises(aisbox_home):
     store = EnvironmentStore()
-    partial_dir = aienv_home / "partial"
+    partial_dir = aisbox_home / "partial"
     partial_dir.mkdir(parents=True)
 
-    with pytest.raises(AienvError):
+    with pytest.raises(AisboxError):
         store.delete("partial")
 
     assert partial_dir.exists()

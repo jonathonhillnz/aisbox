@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Callable
 
-from aienv.models import AgentDefinition, Environment
+from aisbox.models import AgentDefinition, Environment
 
 
 Runner = Callable[..., subprocess.CompletedProcess]

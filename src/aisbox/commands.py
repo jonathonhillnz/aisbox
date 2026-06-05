@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aienv.agents import get_agent, supported_agents
-from aienv.docker import build_image, docker_available, run_container
-from aienv.errors import AienvError
-from aienv.models import Environment, Mount
-from aienv.store import EnvironmentStore
-from aienv.validation import parse_env_assignment, validate_env_name, validate_mount_alias
+from aisbox.agents import get_agent, supported_agents
+from aisbox.docker import build_image, docker_available, run_container
+from aisbox.errors import AisboxError
+from aisbox.models import Environment, Mount
+from aisbox.store import EnvironmentStore
+from aisbox.validation import parse_env_assignment, validate_env_name, validate_mount_alias
 
 
 def create_environment(
@@ -24,13 +24,13 @@ def create_environment(
     store = store or EnvironmentStore()
     name = validate_env_name(name)
     if store.exists(name):
-        raise AienvError(f"Environment already exists: {name}")
+        raise AisboxError(f"Environment already exists: {name}")
     agent = get_agent(agent_name)
     env = dict(parse_env_assignment(item) for item in env_assignments)
     store.create_dirs(name, agent.name)
     workspace_path = Path(workspace).expanduser().resolve() if workspace else store.default_workspace(name)
     if not workspace_path.exists() or not workspace_path.is_dir():
-        raise AienvError(f"Workspace path does not exist: {workspace_path}")
+        raise AisboxError(f"Workspace path does not exist: {workspace_path}")
     created = Environment(
         name=name,
         agent=agent.name,
@@ -43,9 +43,9 @@ def create_environment(
     try:
         build_image(agent)
     except FileNotFoundError as exc:
-        raise AienvError("Docker is not installed or not available on PATH") from exc
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
     except subprocess.CalledProcessError as exc:
-        raise AienvError(f"Docker image build failed for agent: {agent.name}") from exc
+        raise AisboxError(f"Docker image build failed for agent: {agent.name}") from exc
     store.save(created)
     return created
 
@@ -73,9 +73,9 @@ def add_mount(
     alias = validate_mount_alias(alias)
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists() or not source_path.is_dir():
-        raise AienvError(f"Mount source path must be an existing directory: {source_path}")
+        raise AisboxError(f"Mount source path must be an existing directory: {source_path}")
     if any(mount.alias == alias for mount in env.mounts):
-        raise AienvError(f"Mount alias already exists: {alias}")
+        raise AisboxError(f"Mount alias already exists: {alias}")
     mount = Mount(source=str(source_path), alias=alias)
     env.mounts.append(mount)
     store.save(env)
@@ -89,7 +89,7 @@ def remove_mount(name: str, alias: str, store: EnvironmentStore | None = None) -
     original_count = len(env.mounts)
     env.mounts = [mount for mount in env.mounts if mount.alias != alias]
     if len(env.mounts) == original_count:
-        raise AienvError(f"Mount alias does not exist: {alias}")
+        raise AisboxError(f"Mount alias does not exist: {alias}")
     store.save(env)
 
 
@@ -110,7 +110,7 @@ def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) ->
     store = store or EnvironmentStore()
     env = store.load(name)
     if key not in env.env:
-        raise AienvError(f"Environment variable is not set: {key}")
+        raise AisboxError(f"Environment variable is not set: {key}")
     del env.env[key]
     store.save(env)
 
@@ -128,9 +128,9 @@ def run_environment(
     try:
         run_container(env, agent, config_source, mode, prompt)
     except FileNotFoundError as exc:
-        raise AienvError("Docker is not installed or not available on PATH") from exc
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
     except subprocess.CalledProcessError as exc:
-        raise AienvError(f"Docker container failed for environment: {env.name}") from exc
+        raise AisboxError(f"Docker container failed for environment: {env.name}") from exc
 
 
 def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> None:
@@ -140,9 +140,9 @@ def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> Non
     try:
         build_image(agent)
     except FileNotFoundError as exc:
-        raise AienvError("Docker is not installed or not available on PATH") from exc
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
     except subprocess.CalledProcessError as exc:
-        raise AienvError(f"Docker image build failed for agent: {agent.name}") from exc
+        raise AisboxError(f"Docker image build failed for agent: {agent.name}") from exc
     env.image = agent.image
     store.save(env)
 
