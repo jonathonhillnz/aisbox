@@ -6,15 +6,21 @@ import typer
 
 from aienv import __version__
 from aienv.commands import (
+    add_mount,
     create_environment,
     delete_environment,
     inspect_environment,
     list_environments,
+    remove_mount,
+    set_env_var,
+    unset_env_var,
 )
 from aienv.errors import AienvError
 
 
 app = typer.Typer(no_args_is_help=True)
+env_app = typer.Typer(no_args_is_help=True)
+app.add_typer(env_app, name="env")
 
 
 def version_callback(value: bool) -> None:
@@ -98,6 +104,55 @@ def delete(
     except AienvError as exc:
         handle_error(exc)
     typer.echo(f"Deleted {name}")
+
+
+@app.command("mount")
+def mount(
+    name: str = typer.Option(..., "-n", "--name"),
+    source: str = typer.Argument(...),
+    alias: str = typer.Argument(...),
+) -> None:
+    try:
+        created = add_mount(name, source, alias)
+    except AienvError as exc:
+        handle_error(exc)
+    typer.echo(f"Mounted {created.alias}")
+
+
+@app.command("unmount")
+def unmount(
+    name: str = typer.Option(..., "-n", "--name"),
+    alias: str = typer.Argument(...),
+) -> None:
+    try:
+        remove_mount(name, alias)
+    except AienvError as exc:
+        handle_error(exc)
+    typer.echo(f"Unmounted {alias}")
+
+
+@env_app.command("set")
+def env_set(
+    assignment: str = typer.Argument(...),
+    name: str = typer.Option(..., "-n", "--name"),
+) -> None:
+    try:
+        key = set_env_var(name, assignment)
+    except AienvError as exc:
+        handle_error(exc)
+    typer.echo(f"Set {key}")
+
+
+@env_app.command("unset")
+def env_unset(
+    key: str = typer.Argument(...),
+    name: str = typer.Option(..., "-n", "--name"),
+) -> None:
+    try:
+        unset_env_var(name, key)
+    except AienvError as exc:
+        handle_error(exc)
+    typer.echo(f"Unset {key}")
 
 
 def main() -> None:
