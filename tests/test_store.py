@@ -38,6 +38,27 @@ def test_root_override_expands_user_home(tmp_path, monkeypatch):
     assert store.root == tmp_path / "some-aienv-test-root"
 
 
+@pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])
+def test_config_dir_rejects_path_like_agent_values(agent):
+    store = EnvironmentStore()
+
+    with pytest.raises(AienvError):
+        store.config_dir("demo1", agent)
+
+
+@pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])
+def test_create_dirs_rejects_path_like_agent_values_without_creating_dirs(
+    aienv_home, agent
+):
+    store = EnvironmentStore()
+
+    with pytest.raises(AienvError):
+        store.create_dirs("demo1", agent)
+
+    assert not (aienv_home / "demo1").exists()
+    assert not (aienv_home.parent / "agent").exists()
+
+
 @pytest.mark.parametrize("name", [".", ".."])
 def test_env_dir_rejects_dot_segment_names(name):
     store = EnvironmentStore()

@@ -19,7 +19,7 @@ class EnvironmentStore:
         return self.root / validate_env_name(name)
 
     def config_dir(self, name: str, agent: str) -> Path:
-        return self.env_dir(name) / "config" / agent
+        return self.env_dir(name) / "config" / validate_env_name(agent)
 
     def default_workspace(self, name: str) -> Path:
         return self.env_dir(name) / "files"
