@@ -30,6 +30,14 @@ def test_save_and_load_environment(aienv_home, tmp_path):
     assert (aienv_home / "demo1" / "environment.json").exists()
 
 
+def test_root_override_expands_user_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    store = EnvironmentStore(Path("~/some-aienv-test-root"))
+
+    assert store.root == tmp_path / "some-aienv-test-root"
+
+
 def test_load_missing_environment_raises(aienv_home):
     store = EnvironmentStore()
 

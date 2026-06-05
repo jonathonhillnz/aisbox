@@ -13,7 +13,7 @@ from aienv.validation import validate_env_name
 
 class EnvironmentStore:
     def __init__(self, root: Path | None = None) -> None:
-        self.root = root or Path(os.environ.get("AIENV_HOME", "~/.aienv")).expanduser()
+        self.root = Path(root or os.environ.get("AIENV_HOME", "~/.aienv")).expanduser()
 
     def env_dir(self, name: str) -> Path:
         return self.root / validate_env_name(name)
