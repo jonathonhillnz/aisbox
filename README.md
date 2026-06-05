@@ -3,6 +3,7 @@
 `aisbox` runs AI coding agents inside isolated Docker environments.
 
 Each environment stores its own config and files under `~/.aisbox/<name>`.
+Set `AISBOX_HOME` to use a different state directory.
 Host `~/.claude` and `~/.codex` directories are not copied or mounted.
 Docker must be usable by the current user. `aisbox` does not run Docker through `sudo`.
 

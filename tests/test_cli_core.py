@@ -143,3 +143,4 @@ def test_readme_documents_primary_commands():
         in readme
     )
     assert "does not run Docker through `sudo`" in readme
+    assert "AISBOX_HOME" in readme

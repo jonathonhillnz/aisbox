@@ -8,7 +8,7 @@ from pathlib import Path
 
 from aisbox.errors import AisboxError
 from aisbox.models import Environment, Mount
-from aisbox.validation import validate_env_name
+from aisbox.validation import parse_env_assignment, validate_env_name, validate_mount_alias
 
 
 class EnvironmentStore:
@@ -45,7 +45,16 @@ class EnvironmentStore:
         if not path.exists():
             raise AisboxError(f"Environment does not exist: {name}")
         payload = json.loads(path.read_text(encoding="utf-8"))
-        payload["mounts"] = [Mount(**mount) for mount in payload.get("mounts", [])]
+        payload["name"] = validate_env_name(payload["name"])
+        payload["agent"] = validate_env_name(payload["agent"])
+        payload["env"] = {
+            parse_env_assignment(f"{key}=ignored")[0]: value
+            for key, value in payload.get("env", {}).items()
+        }
+        payload["mounts"] = [
+            Mount(source=str(mount["source"]), alias=validate_mount_alias(mount["alias"]))
+            for mount in payload.get("mounts", [])
+        ]
         return Environment(**payload)
 
     def list(self) -> list[Environment]:

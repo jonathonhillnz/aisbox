@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -104,6 +105,52 @@ def test_load_missing_environment_raises(aisbox_home):
 
     with pytest.raises(AisboxError):
         store.load("missing")
+
+
+@pytest.mark.parametrize("alias", ["../src", "/src", "src/repo", "src..repo"])
+def test_load_rejects_persisted_unsafe_mount_aliases(aisbox_home, tmp_path, alias):
+    store = EnvironmentStore()
+    env_dir = aisbox_home / "demo1"
+    env_dir.mkdir(parents=True)
+    payload = {
+        "name": "demo1",
+        "agent": "claude",
+        "env": {},
+        "workspace": str(tmp_path),
+        "mounts": [{"source": str(tmp_path), "alias": alias}],
+        "image": "aisbox/claude:latest",
+        "created_at": "2026-06-05T00:00:00Z",
+    }
+    (env_dir / "environment.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(AisboxError):
+        store.load("demo1")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("name", ".."), ("agent", "../claude")],
+)
+def test_load_rejects_persisted_unsafe_environment_fields(
+    aisbox_home, tmp_path, field, value
+):
+    store = EnvironmentStore()
+    env_dir = aisbox_home / "demo1"
+    env_dir.mkdir(parents=True)
+    payload = {
+        "name": "demo1",
+        "agent": "claude",
+        "env": {},
+        "workspace": str(tmp_path),
+        "mounts": [],
+        "image": "aisbox/claude:latest",
+        "created_at": "2026-06-05T00:00:00Z",
+    }
+    payload[field] = value
+    (env_dir / "environment.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(AisboxError):
+        store.load("demo1")
 
 
 def test_list_environments_sorts_by_name(aisbox_home, tmp_path):
