@@ -66,3 +66,58 @@ def test_container_command_includes_mounts_env_and_prompt():
     assert "/tmp/src:/workspace/src" in command
     assert "TOKEN=abc" in command
     assert command[-2:] == ["-p", "hello"]
+
+
+def test_container_command_uses_stored_environment_image():
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aienv/claude:pinned",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(env, agent, "/tmp/config/claude", "run", "hello")
+    image_index = command.index(agent.run_command[0]) - 1
+
+    assert command[image_index] == "aienv/claude:pinned"
+    assert agent.image not in command
+
+
+def test_container_command_attach_mode_is_interactive_and_appends_attach_command():
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aienv/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(env, agent, "/tmp/config/claude", "attach")
+
+    assert "-it" in command
+    assert command[-len(agent.attach_command) :] == agent.attach_command
+
+
+def test_container_command_shell_mode_is_interactive_and_appends_shell_command():
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aienv/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(env, agent, "/tmp/config/claude", "shell")
+
+    assert "-it" in command
+    assert command[-len(agent.shell_command) :] == agent.shell_command

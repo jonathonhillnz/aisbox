@@ -162,7 +162,7 @@ def run(
     ctx: typer.Context,
     name: str = typer.Option(..., "-n", "--name"),
 ) -> None:
-    prompt = " ".join(ctx.args)
+    prompt = " ".join(ctx.args) if ctx.args else None
     try:
         run_environment(name, "run", prompt)
     except AienvError as exc:

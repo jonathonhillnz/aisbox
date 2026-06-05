@@ -51,7 +51,7 @@ def container_command(
         command.extend(["-v", f"{mount.source}:/workspace/{mount.alias}"])
     for key, value in sorted(env.env.items()):
         command.extend(["-e", f"{key}={value}"])
-    command.append(agent.image)
+    command.append(env.image)
     if mode == "run":
         command.extend(agent.run_command)
         if prompt is not None:

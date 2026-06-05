@@ -31,6 +31,17 @@ def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
     assert prompt == "hello"
 
 
+def test_run_without_prompt_passes_none(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner_mock = Mock()
+    monkeypatch.setattr("aienv.commands.run_container", runner_mock)
+
+    result = runner.invoke(app, ["run", "-n", "demo1"])
+
+    assert result.exit_code == 0
+    assert runner_mock.call_args.args[4] is None
+
+
 def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
