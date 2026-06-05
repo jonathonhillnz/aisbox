@@ -9,6 +9,7 @@ from aienv.commands import (
     add_mount,
     create_environment,
     delete_environment,
+    doctor as run_doctor,
     inspect_environment,
     list_environments,
     rebuild_environment,
@@ -192,6 +193,15 @@ def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
     except AienvError as exc:
         handle_error(exc)
     typer.echo(f"Rebuilt {name}")
+
+
+@app.command("doctor")
+def doctor() -> None:
+    result = run_doctor()
+    for line in result.lines:
+        typer.echo(line)
+    if not result.ok:
+        raise typer.Exit(code=1)
 
 
 def main() -> None:

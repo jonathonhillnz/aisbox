@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aienv.agents import get_agent
-from aienv.docker import build_image, run_container
+from aienv.agents import get_agent, supported_agents
+from aienv.docker import build_image, docker_available, run_container
 from aienv.errors import AienvError
 from aienv.models import Environment, Mount
 from aienv.store import EnvironmentStore
@@ -143,3 +144,31 @@ def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> Non
         raise AienvError(f"Docker image build failed for agent: {agent.name}") from exc
     env.image = agent.image
     store.save(env)
+
+
+@dataclass(frozen=True)
+class DoctorResult:
+    ok: bool
+    lines: list[str]
+
+
+def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
+    store = store or EnvironmentStore()
+    lines = []
+    ok = True
+    if docker_available():
+        lines.append("Docker: ok")
+    else:
+        lines.append("Docker: missing, unreachable, or permission denied")
+        ok = False
+    try:
+        store.root.mkdir(parents=True, exist_ok=True)
+        probe = store.root / ".doctor-write-test"
+        probe.write_text("ok\n", encoding="utf-8")
+        probe.unlink()
+        lines.append("State directory: ok")
+    except OSError:
+        lines.append("State directory: not writable")
+        ok = False
+    lines.append("Supported agents: " + ", ".join(supported_agents()))
+    return DoctorResult(ok=ok, lines=lines)
