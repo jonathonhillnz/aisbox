@@ -11,7 +11,9 @@ from aienv.commands import (
     delete_environment,
     inspect_environment,
     list_environments,
+    rebuild_environment,
     remove_mount,
+    run_environment,
     set_env_var,
     unset_env_var,
 )
@@ -153,6 +155,43 @@ def env_unset(
     except AienvError as exc:
         handle_error(exc)
     typer.echo(f"Unset {key}")
+
+
+@app.command("run", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def run(
+    ctx: typer.Context,
+    name: str = typer.Option(..., "-n", "--name"),
+) -> None:
+    prompt = " ".join(ctx.args)
+    try:
+        run_environment(name, "run", prompt)
+    except AienvError as exc:
+        handle_error(exc)
+
+
+@app.command("attach")
+def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
+    try:
+        run_environment(name, "attach")
+    except AienvError as exc:
+        handle_error(exc)
+
+
+@app.command("shell")
+def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
+    try:
+        run_environment(name, "shell")
+    except AienvError as exc:
+        handle_error(exc)
+
+
+@app.command("rebuild")
+def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
+    try:
+        rebuild_environment(name)
+    except AienvError as exc:
+        handle_error(exc)
+    typer.echo(f"Rebuilt {name}")
 
 
 def main() -> None:

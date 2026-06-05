@@ -2,7 +2,8 @@ import subprocess
 from unittest.mock import Mock
 
 from aienv.agents import get_agent
-from aienv.docker import build_image, docker_available
+from aienv.docker import build_image, container_command, docker_available
+from aienv.models import Environment, Mount
 
 
 def test_build_image_invokes_docker_build_with_stdin():
@@ -43,3 +44,25 @@ def test_docker_available_returns_true_when_docker_version_succeeds():
         capture_output=True,
         text=True,
     )
+
+
+def test_container_command_includes_mounts_env_and_prompt():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"TOKEN": "abc"},
+        workspace="/tmp/workspace",
+        mounts=[Mount(source="/tmp/src", alias="src")],
+        image="aienv/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(env, get_agent("claude"), "/tmp/config/claude", "run", "hello")
+
+    assert command[:4] == ["docker", "run", "--rm", "-w"]
+    assert "-v" in command
+    assert "/tmp/workspace:/workspace" in command
+    assert "/tmp/config/claude:/home/aienv/.claude" in command
+    assert "/tmp/src:/workspace/src" in command
+    assert "TOKEN=abc" in command
+    assert command[-2:] == ["-p", "hello"]

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aienv.agents import get_agent
-from aienv.docker import build_image
+from aienv.docker import build_image, run_container
 from aienv.errors import AienvError
 from aienv.models import Environment, Mount
 from aienv.store import EnvironmentStore
@@ -110,4 +110,36 @@ def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) ->
     if key not in env.env:
         raise AienvError(f"Environment variable is not set: {key}")
     del env.env[key]
+    store.save(env)
+
+
+def run_environment(
+    name: str,
+    mode: str,
+    prompt: str | None = None,
+    store: EnvironmentStore | None = None,
+) -> None:
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    agent = get_agent(env.agent)
+    config_source = str(store.config_dir(env.name, agent.name))
+    try:
+        run_container(env, agent, config_source, mode, prompt)
+    except FileNotFoundError as exc:
+        raise AienvError("Docker is not installed or not available on PATH") from exc
+    except subprocess.CalledProcessError as exc:
+        raise AienvError(f"Docker container failed for environment: {env.name}") from exc
+
+
+def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> None:
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    agent = get_agent(env.agent)
+    try:
+        build_image(agent)
+    except FileNotFoundError as exc:
+        raise AienvError("Docker is not installed or not available on PATH") from exc
+    except subprocess.CalledProcessError as exc:
+        raise AienvError(f"Docker image build failed for agent: {agent.name}") from exc
+    env.image = agent.image
     store.save(env)
