@@ -71,7 +71,7 @@ def add_mount(
     alias = validate_mount_alias(alias)
     source_path = Path(source).expanduser().resolve()
     if not source_path.exists() or not source_path.is_dir():
-        raise AienvError(f"Mount source path does not exist: {source_path}")
+        raise AienvError(f"Mount source path must be an existing directory: {source_path}")
     if any(mount.alias == alias for mount in env.mounts):
         raise AienvError(f"Mount alias already exists: {alias}")
     mount = Mount(source=str(source_path), alias=alias)
