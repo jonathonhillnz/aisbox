@@ -14,7 +14,28 @@ def test_get_agent_returns_claude_definition():
     assert agent.name == "claude"
     assert agent.image == "aienv/claude:latest"
     assert agent.config_path == "/home/aienv/.claude"
+    assert agent.run_command == ["claude", "-p"]
+    assert agent.attach_command == ["claude"]
     assert "npm install -g @anthropic-ai/claude-code" in agent.dockerfile
+
+
+def test_get_agent_returns_codex_definition():
+    agent = get_agent("codex")
+
+    assert agent.name == "codex"
+    assert agent.image == "aienv/codex:latest"
+    assert agent.config_path == "/home/aienv/.codex"
+    assert agent.run_command == ["codex", "exec"]
+    assert agent.attach_command == ["codex"]
+    assert "npm install -g @openai/codex" in agent.dockerfile
+
+
+@pytest.mark.parametrize("agent_name", ["claude", "codex"])
+def test_agent_dockerfile_installs_global_npm_package_before_switching_user(agent_name):
+    dockerfile = get_agent(agent_name).dockerfile
+
+    assert dockerfile.index("RUN npm install -g") < dockerfile.index("USER aienv")
+    assert dockerfile.index("USER aienv") < dockerfile.index("WORKDIR /workspace")
 
 
 def test_get_agent_rejects_unknown_agent():

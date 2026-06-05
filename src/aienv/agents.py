@@ -11,8 +11,6 @@ RUN apt-get update \
        bash ca-certificates curl git nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -s /bin/bash aienv
-USER aienv
-WORKDIR /workspace
 """
 
 
@@ -22,7 +20,9 @@ AGENTS = {
         image="aienv/claude:latest",
         config_path="/home/aienv/.claude",
         dockerfile=BASE_DOCKERFILE_PREFIX
-        + "RUN npm install -g @anthropic-ai/claude-code\n",
+        + "RUN npm install -g @anthropic-ai/claude-code\n"
+        + "USER aienv\n"
+        + "WORKDIR /workspace\n",
         run_command=["claude", "-p"],
         attach_command=["claude"],
     ),
@@ -30,7 +30,10 @@ AGENTS = {
         name="codex",
         image="aienv/codex:latest",
         config_path="/home/aienv/.codex",
-        dockerfile=BASE_DOCKERFILE_PREFIX + "RUN npm install -g @openai/codex\n",
+        dockerfile=BASE_DOCKERFILE_PREFIX
+        + "RUN npm install -g @openai/codex\n"
+        + "USER aienv\n"
+        + "WORKDIR /workspace\n",
         run_command=["codex", "exec"],
         attach_command=["codex"],
     ),
