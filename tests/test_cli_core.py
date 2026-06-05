@@ -1,3 +1,5 @@
+import subprocess
+
 from typer.testing import CliRunner
 
 from aienv.cli import app
@@ -69,6 +71,23 @@ def test_create_reports_docker_not_found_without_traceback(tmp_path, monkeypatch
 
     assert result.exit_code == 1
     assert "Error:" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_create_reports_docker_build_failure_without_traceback(tmp_path, monkeypatch):
+    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setattr(
+        "aienv.commands.build_image",
+        lambda agent: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(returncode=1, cmd=["docker", "build"])
+        ),
+    )
+
+    result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
+
+    assert result.exit_code == 1
+    assert "Error:" in result.stderr
+    assert "Docker image build failed" in result.stderr
     assert "Traceback" not in result.stderr
 
 
