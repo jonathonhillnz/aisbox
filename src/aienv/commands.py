@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -163,12 +164,29 @@ def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
         ok = False
     try:
         store.root.mkdir(parents=True, exist_ok=True)
-        probe = store.root / ".doctor-write-test"
-        probe.write_text("ok\n", encoding="utf-8")
-        probe.unlink()
+        probe_path: Path | None = None
+        cleanup_error: OSError | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                delete=False,
+                dir=store.root,
+                prefix=".doctor-",
+            ) as probe:
+                probe_path = Path(probe.name)
+                probe.write("ok\n")
+        finally:
+            if probe_path is not None:
+                try:
+                    probe_path.unlink(missing_ok=True)
+                except OSError as exc:
+                    cleanup_error = exc
+        if cleanup_error is not None:
+            raise cleanup_error
         lines.append("State directory: ok")
-    except OSError:
-        lines.append("State directory: not writable")
+    except OSError as exc:
+        lines.append(f"State directory: not writable: {store.root} ({exc})")
         ok = False
     lines.append("Supported agents: " + ", ".join(supported_agents()))
     return DoctorResult(ok=ok, lines=lines)
