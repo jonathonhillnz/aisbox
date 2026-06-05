@@ -124,7 +124,7 @@ def run_environment(
     store = store or EnvironmentStore()
     env = store.load(name)
     agent = get_agent(env.agent)
-    config_source = str(store.config_dir(env.name, agent.name))
+    config_source = str(store.config_dir(env.name))
     try:
         run_container(env, agent, config_source, mode, prompt)
     except FileNotFoundError as exc:

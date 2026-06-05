@@ -18,8 +18,8 @@ class EnvironmentStore:
     def env_dir(self, name: str) -> Path:
         return self.root / validate_env_name(name)
 
-    def config_dir(self, name: str, agent: str) -> Path:
-        return self.env_dir(name) / "config" / validate_env_name(agent)
+    def config_dir(self, name: str) -> Path:
+        return self.env_dir(name) / "config"
 
     def default_workspace(self, name: str) -> Path:
         return self.env_dir(name) / "files"
@@ -28,7 +28,8 @@ class EnvironmentStore:
         return (self.env_dir(name) / "environment.json").exists()
 
     def create_dirs(self, name: str, agent: str) -> None:
-        self.config_dir(name, agent).mkdir(parents=True, exist_ok=True)
+        validate_env_name(agent)
+        self.config_dir(name).mkdir(parents=True, exist_ok=True)
         self.default_workspace(name).mkdir(parents=True, exist_ok=True)
 
     def save(self, env: Environment) -> None:

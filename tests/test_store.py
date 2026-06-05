@@ -39,12 +39,13 @@ def test_root_override_expands_user_home(tmp_path, monkeypatch):
     assert store.root == tmp_path / "some-aisbox-test-root"
 
 
-@pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])
-def test_config_dir_rejects_path_like_agent_values(agent):
+def test_create_dirs_creates_home_config_directory(aisbox_home):
     store = EnvironmentStore()
 
-    with pytest.raises(AisboxError):
-        store.config_dir("demo1", agent)
+    store.create_dirs("demo1", "claude")
+
+    assert (aisbox_home / "demo1" / "config").is_dir()
+    assert not (aisbox_home / "demo1" / "config" / "claude").exists()
 
 
 @pytest.mark.parametrize("agent", ["../agent", "agent/name", ".", ".."])

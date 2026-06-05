@@ -13,7 +13,7 @@ def test_get_agent_returns_claude_definition():
 
     assert agent.name == "claude"
     assert agent.image == "aisbox/claude:latest"
-    assert agent.config_path == "/home/aisbox/.claude"
+    assert agent.config_path == "/home/aisbox"
     assert agent.run_command == ["claude", "-p"]
     assert agent.attach_command == ["claude"]
     assert "npm install -g @anthropic-ai/claude-code" in agent.dockerfile
@@ -24,7 +24,7 @@ def test_get_agent_returns_codex_definition():
 
     assert agent.name == "codex"
     assert agent.image == "aisbox/codex:latest"
-    assert agent.config_path == "/home/aisbox/.codex"
+    assert agent.config_path == "/home/aisbox"
     assert agent.run_command == ["codex", "exec"]
     assert agent.attach_command == ["codex"]
     assert "npm install -g @openai/codex" in agent.dockerfile

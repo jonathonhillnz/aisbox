@@ -26,7 +26,7 @@ def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
     env, agent, config_source, mode, prompt = runner_mock.call_args.args
     assert env.name == "demo1"
     assert agent.name == "claude"
-    assert config_source.endswith("/config/claude")
+    assert config_source.endswith("/config")
     assert mode == "run"
     assert prompt == "hello"
 

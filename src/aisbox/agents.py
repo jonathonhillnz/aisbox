@@ -18,7 +18,7 @@ AGENTS = {
     "claude": AgentDefinition(
         name="claude",
         image="aisbox/claude:latest",
-        config_path="/home/aisbox/.claude",
+        config_path="/home/aisbox",
         dockerfile=BASE_DOCKERFILE_PREFIX
         + "RUN npm install -g @anthropic-ai/claude-code\n"
         + "USER aisbox\n"
@@ -29,7 +29,7 @@ AGENTS = {
     "codex": AgentDefinition(
         name="codex",
         image="aisbox/codex:latest",
-        config_path="/home/aisbox/.codex",
+        config_path="/home/aisbox",
         dockerfile=BASE_DOCKERFILE_PREFIX
         + "RUN npm install -g @openai/codex\n"
         + "USER aisbox\n"
