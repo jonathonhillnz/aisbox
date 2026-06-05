@@ -59,7 +59,6 @@ class EnvironmentStore:
         return sorted(envs, key=lambda env: env.name)
 
     def delete(self, name: str) -> None:
-        path = self.env_dir(name)
-        if not path.exists():
+        if not self.exists(name):
             raise AienvError(f"Environment does not exist: {name}")
-        shutil.rmtree(path)
+        shutil.rmtree(self.env_dir(name))

@@ -10,7 +10,7 @@ ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def validate_env_name(name: str) -> str:
-    if not ENV_NAME_RE.match(name):
+    if name in {".", ".."} or not ENV_NAME_RE.match(name):
         raise AienvError("Environment name must match [a-zA-Z0-9_.-]+")
     return name
 

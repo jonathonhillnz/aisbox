@@ -13,7 +13,7 @@ def test_validate_env_name_accepts_safe_names(name):
     assert validate_env_name(name) == name
 
 
-@pytest.mark.parametrize("name", ["", "../demo", "demo/name", "demo name", "$demo"])
+@pytest.mark.parametrize("name", ["", ".", "..", "../demo", "demo/name", "demo name", "$demo"])
 def test_validate_env_name_rejects_unsafe_names(name):
     with pytest.raises(AienvError):
         validate_env_name(name)
