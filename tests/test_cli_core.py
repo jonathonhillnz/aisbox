@@ -1,6 +1,7 @@
 from typer.testing import CliRunner
 
 from aienv.cli import app
+from aienv.errors import AienvError
 
 
 runner = CliRunner()
@@ -55,6 +56,32 @@ def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
     assert "workspace" in inspected.stdout
     assert "TOKEN" in inspected.stdout
     assert "abc" not in inspected.stdout
+
+
+def test_create_reports_docker_not_found_without_traceback(tmp_path, monkeypatch):
+    monkeypatch.setenv("AIENV_HOME", str(tmp_path / "aienv-home"))
+    monkeypatch.setattr(
+        "aienv.commands.build_image",
+        lambda agent: (_ for _ in ()).throw(FileNotFoundError("docker")),
+    )
+
+    result = runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
+
+    assert result.exit_code == 1
+    assert "Error:" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_list_reports_store_errors(monkeypatch):
+    monkeypatch.setattr(
+        "aienv.cli.list_environments",
+        lambda: (_ for _ in ()).throw(AienvError("boom")),
+    )
+
+    result = runner.invoke(app, ["list"])
+
+    assert result.exit_code == 1
+    assert "Error: boom" in result.stderr
 
 
 def test_delete_environment_with_force(tmp_path, monkeypatch):

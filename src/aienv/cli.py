@@ -57,7 +57,10 @@ def create(
 
 @app.command("list")
 def list_envs() -> None:
-    envs = list_environments()
+    try:
+        envs = list_environments()
+    except AienvError as exc:
+        handle_error(exc)
     if not envs:
         typer.echo("No environments found")
         return

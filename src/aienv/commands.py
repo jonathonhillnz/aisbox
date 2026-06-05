@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,7 +38,12 @@ def create_environment(
         image=agent.image,
         created_at=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
     )
-    build_image(agent)
+    try:
+        build_image(agent)
+    except FileNotFoundError as exc:
+        raise AienvError("Docker is not installed or not available on PATH") from exc
+    except subprocess.CalledProcessError as exc:
+        raise AienvError(f"Docker image build failed for agent: {agent.name}") from exc
     store.save(created)
     return created
 
