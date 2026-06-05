@@ -1,3 +1,4 @@
+from pathlib import Path
 import subprocess
 
 from typer.testing import CliRunner
@@ -113,3 +114,18 @@ def test_delete_environment_with_force(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Deleted demo1" in result.stdout
     assert runner.invoke(app, ["list"]).stdout.strip() == "No environments found"
+
+
+def test_readme_documents_primary_commands():
+    readme = Path("README.md").read_text(encoding="utf-8")
+
+    for command in [
+        "aienv create",
+        "aienv run",
+        "aienv attach",
+        "aienv shell",
+        "aienv mount",
+        "aienv env set",
+        "aienv doctor",
+    ]:
+        assert command in readme
