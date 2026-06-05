@@ -89,7 +89,7 @@ The base image should be debuggable and conservative, likely Debian or Ubuntu sl
 
 ## Runtime Behavior
 
-`run`, `attach`, and `shell` create fresh containers using `docker run --rm`. Containers are disposable; persistence comes only from bind mounts.
+`run`, `attach`, and `shell` create fresh containers using `docker run --rm`. Containers are disposable; persistence comes only from bind mounts. `aienv` invokes `docker` as the current user and does not automatically prefix Docker commands with `sudo`; users must have Docker access through their local Docker setup, the `docker` group, or rootless Docker.
 
 Standard mounts:
 
@@ -110,7 +110,7 @@ Environment variables stored during `create -e KEY=VALUE` are passed to every co
 
 `rebuild` runs the image build for the environment's selected agent again and updates the stored image tag if the agent definition changes. It does not change workspace files, config files, env vars, or mounts.
 
-`doctor` checks Docker availability, Docker daemon reachability, whether `~/.aienv` can be created and written, whether supported agent definitions are available, and whether known local images exist. It returns a non-zero status when required prerequisites are missing.
+`doctor` checks Docker availability, Docker daemon reachability, Docker permission for the current user, whether `~/.aienv` can be created and written, whether supported agent definitions are available, and whether known local images exist. It returns a non-zero status when required prerequisites are missing.
 
 ## Validation And Safety
 
@@ -124,7 +124,7 @@ Environment names must match:
 
 The CLI fails early with clear messages when:
 
-- Docker is missing or not reachable
+- Docker is missing, not reachable, or not usable by the current user
 - the requested agent is unsupported
 - an environment name does not exist
 - an environment variable is not `KEY=VALUE`
@@ -176,6 +176,7 @@ Integration-style tests use mocked subprocess calls to verify:
 - long-running reusable containers
 - GUI apps
 - remote Docker hosts
+- automatic `sudo` elevation for Docker
 - read-only mounts
 - multiple simultaneous workspaces per environment
 - shell completion
