@@ -183,7 +183,7 @@ def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
         lines.append("Docker: missing, unreachable, or permission denied")
         ok = False
     try:
-        store.root.mkdir(parents=True, exist_ok=True)
+        store.ensure_root()
         probe_path: Path | None = None
         cleanup_error: OSError | None = None
         try:
@@ -205,7 +205,7 @@ def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
         if cleanup_error is not None:
             raise cleanup_error
         lines.append("State directory: ok")
-    except OSError as exc:
+    except (AisboxError, OSError) as exc:
         lines.append(f"State directory: not writable: {store.root} ({exc})")
         ok = False
     lines.append("Supported agents: " + ", ".join(supported_agents()))

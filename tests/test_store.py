@@ -42,7 +42,7 @@ def test_managed_state_uses_restrictive_modes_regardless_of_umask(
     aisbox_home, tmp_path
 ):
     store = EnvironmentStore()
-    previous_umask = os.umask(0o022)
+    previous_umask = os.umask(0o777)
     try:
         store.create_dirs("demo1", "claude")
         store.save(make_env(tmp_path))
@@ -56,6 +56,99 @@ def test_managed_state_uses_restrictive_modes_regardless_of_umask(
     assert mode(aisbox_home / "demo1" / "files") == 0o700
     assert mode(aisbox_home / "demo1" / "environment.json") == 0o600
     assert mode(aisbox_home / "settings.json") == 0o600
+    assert store.load("demo1") == make_env(tmp_path)
+    assert store.read_settings() == {"default_environment": "demo1"}
+
+
+@pytest.mark.parametrize("managed_file", ["environment.json", "settings.json"])
+def test_managed_file_symlink_is_rejected_without_changing_external_target(
+    aisbox_home, tmp_path, managed_file
+):
+    external_file = tmp_path / f"external-{managed_file}"
+    external_file.write_text("external data\n", encoding="utf-8")
+    external_file.chmod(0o640)
+    store = EnvironmentStore()
+
+    if managed_file == "environment.json":
+        env_dir = aisbox_home / "demo1"
+        env_dir.mkdir(parents=True)
+        managed_path = env_dir / managed_file
+        write = lambda: store.save(make_env(tmp_path))
+    else:
+        aisbox_home.mkdir()
+        managed_path = aisbox_home / managed_file
+        write = lambda: store.write_settings({"default_environment": "demo1"})
+    managed_path.symlink_to(external_file)
+
+    with pytest.raises(AisboxError, match="Managed state path"):
+        write()
+
+    assert external_file.read_text(encoding="utf-8") == "external data\n"
+    assert mode(external_file) == 0o640
+
+
+@pytest.mark.parametrize("managed_dir", ["environment", "config", "files"])
+def test_managed_directory_symlink_is_rejected_without_changing_external_target(
+    aisbox_home, tmp_path, managed_dir
+):
+    external_dir = tmp_path / f"external-{managed_dir}"
+    external_dir.mkdir()
+    external_file = external_dir / "user-data"
+    external_file.write_text("external data\n", encoding="utf-8")
+    external_dir.chmod(0o755)
+    store = EnvironmentStore()
+
+    aisbox_home.mkdir()
+    env_dir = aisbox_home / "demo1"
+    if managed_dir == "environment":
+        env_dir.symlink_to(external_dir, target_is_directory=True)
+    else:
+        env_dir.mkdir()
+        (env_dir / managed_dir).symlink_to(external_dir, target_is_directory=True)
+
+    with pytest.raises(AisboxError, match="Managed state path"):
+        store.save(make_env(tmp_path))
+
+    assert external_file.read_text(encoding="utf-8") == "external data\n"
+    assert mode(external_dir) == 0o755
+
+
+def test_save_tightens_existing_managed_directories_without_creating_missing_ones(
+    aisbox_home, tmp_path
+):
+    env_dir = aisbox_home / "demo1"
+    config_dir = env_dir / "config"
+    files_dir = env_dir / "files"
+    config_dir.mkdir(parents=True)
+    files_dir.mkdir()
+    config_dir.chmod(0o755)
+    files_dir.chmod(0o755)
+
+    EnvironmentStore().save(make_env(tmp_path))
+
+    assert mode(config_dir) == 0o700
+    assert mode(files_dir) == 0o700
+
+    env2 = make_env(tmp_path)
+    env2.name = "demo2"
+    EnvironmentStore().save(env2)
+
+    assert not (aisbox_home / "demo2" / "config").exists()
+    assert not (aisbox_home / "demo2" / "files").exists()
+
+
+def test_unexpected_managed_file_type_is_rejected_without_changing_mode(
+    aisbox_home, tmp_path
+):
+    environment_path = aisbox_home / "demo1" / "environment.json"
+    environment_path.mkdir(parents=True)
+    environment_path.chmod(0o755)
+
+    with pytest.raises(AisboxError, match="Managed state path"):
+        EnvironmentStore().save(make_env(tmp_path))
+
+    assert environment_path.is_dir()
+    assert mode(environment_path) == 0o755
 
 
 def test_managed_state_tightens_existing_modes_without_changing_external_workspace(
