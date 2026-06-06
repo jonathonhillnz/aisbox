@@ -6,9 +6,9 @@ may not receive fixes.
 
 ## Private vulnerability reporting
 
-Use GitHub Private vulnerability reporting to report a suspected
-vulnerability. Do not open a public issue or disclose the report through other
-public channels.
+Use the GitHub `Report a vulnerability` option, when available, to report a
+suspected vulnerability through Private vulnerability reporting. Do not open a
+public issue or disclose the report through other public channels.
 
 Include:
 
@@ -24,6 +24,7 @@ Acknowledgement, investigation, and remediation are best-effort during the
 public preview. Keep vulnerability details private until a fix is available or
 maintainers and the reporter agree on coordinated disclosure.
 
-Maintainers must enable GitHub Private vulnerability reporting in the
-repository security settings before making the repository public and verify
-that the `Report a vulnerability` option is available.
+After changing the repository visibility to public, maintainers must
+immediately enable GitHub Private vulnerability reporting in the repository
+security settings and verify that the `Report a vulnerability` option is
+available before announcing or inviting use of the public preview.
