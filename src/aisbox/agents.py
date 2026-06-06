@@ -12,8 +12,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 ARG AISBOX_UID=1000
 ARG AISBOX_GID=1000
-RUN if ! getent group "$AISBOX_GID" >/dev/null; then groupadd -g "$AISBOX_GID" aisbox; fi \
-    && useradd -m -o -u "$AISBOX_UID" -g "$AISBOX_GID" -s /bin/bash aisbox
+RUN existing_group="$(getent group "$AISBOX_GID" | cut -d: -f1)" \
+    && if [ -n "$existing_group" ] && [ "$existing_group" != "aisbox" ]; then groupmod -n aisbox "$existing_group"; fi \
+    && if [ -z "$existing_group" ]; then groupadd -g "$AISBOX_GID" aisbox; fi \
+    && existing_user="$(getent passwd "$AISBOX_UID" | cut -d: -f1)" \
+    && if [ -n "$existing_user" ] && [ "$existing_user" != "aisbox" ]; then usermod -l aisbox -d /home/aisbox -m "$existing_user"; fi \
+    && if [ -z "$existing_user" ]; then useradd -m -u "$AISBOX_UID" -g "$AISBOX_GID" -s /bin/bash aisbox; fi \
+    && usermod -g "$AISBOX_GID" -s /bin/bash aisbox
 """
 
 

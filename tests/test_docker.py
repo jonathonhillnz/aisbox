@@ -29,7 +29,10 @@ def test_agent_dockerfile_creates_aisbox_user_with_build_time_uid_and_gid():
 
     assert "ARG AISBOX_UID=1000" in dockerfile
     assert "ARG AISBOX_GID=1000" in dockerfile
-    assert 'useradd -m -o -u "$AISBOX_UID" -g "$AISBOX_GID"' in dockerfile
+    assert "usermod -l aisbox -d /home/aisbox -m" in dockerfile
+    assert "groupmod -n aisbox" in dockerfile
+    assert "useradd -m -u \"$AISBOX_UID\" -g \"$AISBOX_GID\"" in dockerfile
+    assert "useradd -m -o" not in dockerfile
 
 
 def test_docker_available_returns_false_when_command_fails():
