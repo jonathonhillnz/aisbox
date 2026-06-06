@@ -1,0 +1,78 @@
+name: Bug report
+description: Report reproducible incorrect behavior in aisbox
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API tokens, credentials, private source code, or sensitive host data.
+        Report security vulnerabilities through the private process in SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the problem concisely.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: Python 3.12.3
+    validations:
+      required: true
+  - type: input
+    id: docker
+    attributes:
+      label: Docker version
+      placeholder: Docker version 27.0.0
+    validations:
+      required: true
+  - type: input
+    id: aisbox_version
+    attributes:
+      label: aisbox version or commit
+      placeholder: aisbox 0.1.0 or a commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostic output
+      description: Include relevant output after removing secrets and sensitive host data.
+      render: shell
+  - type: checkboxes
+    id: sanitized
+    attributes:
+      label: Sensitive data confirmation
+      options:
+        - label: I removed credentials, tokens, private source code, and sensitive host data.
+          required: true

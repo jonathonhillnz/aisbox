@@ -21,7 +21,15 @@ def load_yaml(path: str) -> dict[str, Any]:
 
 
 def test_public_preview_files_exist():
-    for path in ["LICENSE", "CONTRIBUTING.md", "SECURITY.md"]:
+    for path in [
+        "LICENSE",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
+        ".github/pull_request_template.md",
+    ]:
         assert (ROOT / path).is_file()
 
 
@@ -104,6 +112,116 @@ def test_load_yaml_rejects_non_mapping_documents(tmp_path, monkeypatch):
 
     with pytest.raises(TypeError, match="mapping"):
         load_yaml("document.yml")
+
+
+def test_issue_forms_are_valid_and_have_required_fields():
+    bug = load_yaml(".github/ISSUE_TEMPLATE/bug_report.yml")
+    feature = load_yaml(".github/ISSUE_TEMPLATE/feature_request.yml")
+
+    assert bug["name"] == "Bug report"
+    assert bug["description"] == "Report reproducible incorrect behavior in aisbox"
+    assert bug["title"] == "[Bug]: "
+    assert bug["labels"] == ["bug"]
+    assert isinstance(bug["body"], list)
+
+    bug_fields = {item["id"]: item for item in bug["body"] if "id" in item}
+    assert {
+        "summary",
+        "reproduction",
+        "expected",
+        "actual",
+        "os",
+        "python",
+        "docker",
+        "aisbox_version",
+        "diagnostics",
+        "sanitized",
+    } <= bug_fields.keys()
+    for field_id in [
+        "summary",
+        "reproduction",
+        "expected",
+        "actual",
+        "os",
+        "python",
+        "docker",
+        "aisbox_version",
+    ]:
+        assert bug_fields[field_id]["validations"]["required"] is True
+
+    assert bug_fields["diagnostics"]["attributes"]["render"] == "shell"
+    sanitizer_options = bug_fields["sanitized"]["attributes"]["options"]
+    assert any(option.get("required") is True for option in sanitizer_options)
+
+    bug_guidance = " ".join(
+        item["attributes"]["value"]
+        for item in bug["body"]
+        if item["type"] == "markdown"
+    )
+    for text in [
+        "API tokens",
+        "credentials",
+        "private source",
+        "sensitive host data",
+        "private process",
+        "SECURITY.md",
+    ]:
+        assert text in bug_guidance
+
+    assert feature["name"] == "Feature request"
+    assert feature["description"] == "Propose an improvement to aisbox"
+    assert feature["title"] == "[Feature]: "
+    assert feature["labels"] == ["enhancement"]
+    assert isinstance(feature["body"], list)
+
+    feature_fields = {item["id"]: item for item in feature["body"] if "id" in item}
+    assert {"problem", "proposal", "alternatives", "isolation", "context"} <= (
+        feature_fields.keys()
+    )
+    for field_id in ["problem", "proposal", "alternatives", "isolation"]:
+        assert feature_fields[field_id]["validations"]["required"] is True
+    assert "validations" not in feature_fields["context"]
+
+    feature_guidance = " ".join(
+        item["attributes"]["value"]
+        for item in feature["body"]
+        if item["type"] == "markdown"
+    )
+    assert "Search existing issues first" in feature_guidance
+    assert "discussed before a pull request" in feature_guidance
+
+
+def test_issue_config_disables_blank_issues_and_links_security_guidance():
+    config = load_yaml(".github/ISSUE_TEMPLATE/config.yml")
+
+    assert config["blank_issues_enabled"] is False
+    security_link = config["contact_links"][0]
+    assert security_link["name"] == "Security reporting guidance"
+    assert security_link["url"].startswith("https://docs.github.com/")
+    assert "private" in security_link["about"]
+    assert "public issue" in security_link["about"]
+
+
+def test_pull_request_template_covers_review_requirements():
+    template = read_text(".github/pull_request_template.md")
+
+    for text in [
+        "Summary",
+        "Linked Issue",
+        "substantial",
+        "Small documentation corrections",
+        "Tests",
+        "exact commands",
+        "results",
+        "Documentation",
+        "host agent configuration",
+        "mount",
+        "secrets",
+        "sudo",
+        "concise",
+        "tracebacks",
+    ]:
+        assert text in template
 
 
 def test_readme_states_preview_and_safety_contract():

@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose an improvement to aisbox
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Substantial changes should be discussed before a pull request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What limitation or workflow problem should be addressed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe workarounds or alternative designs.
+    validations:
+      required: true
+  - type: textarea
+    id: isolation
+    attributes:
+      label: Relevance to isolated agent environments
+      description: Explain how this fits aisbox's isolation and persistence model.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
