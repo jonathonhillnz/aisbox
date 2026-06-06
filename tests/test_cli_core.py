@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from aisbox.cli import app
 from aisbox.errors import AisboxError
+from aisbox.store import EnvironmentStore
 
 
 runner = CliRunner()
@@ -59,6 +60,71 @@ def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
     assert "workspace" in inspected.stdout
     assert "TOKEN" in inspected.stdout
     assert "abc" not in inspected.stdout
+
+
+def test_create_prompts_for_empty_env_values(tmp_path, monkeypatch):
+    home = tmp_path / "aisbox-home"
+    monkeypatch.setenv("AISBOX_HOME", str(home))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+
+    result = runner.invoke(
+        app,
+        [
+            "create",
+            "-n",
+            "demo1",
+            "-a",
+            "claude",
+            "-e",
+            "ANTHROPIC_API_KEY=",
+            "-e",
+            "NOT_SENSITIVE=visible",
+        ],
+        input="prompted-secret\n",
+    )
+
+    assert result.exit_code == 0
+    assert "ANTHROPIC_API_KEY" in result.stdout
+    assert "prompted-secret" not in result.stdout
+    assert "visible" not in result.stdout
+    assert EnvironmentStore().load("demo1").env == {
+        "ANTHROPIC_API_KEY": "prompted-secret",
+        "NOT_SENSITIVE": "visible",
+    }
+
+
+def test_create_accepts_empty_prompt_response(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+
+    result = runner.invoke(
+        app,
+        ["create", "-n", "demo1", "-a", "claude", "-e", "TOKEN="],
+        input="\n",
+    )
+
+    assert result.exit_code == 0
+    assert EnvironmentStore().load("demo1").env["TOKEN"] == ""
+
+
+def test_create_rejects_invalid_empty_assignment_without_prompting(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+
+    result = runner.invoke(
+        app,
+        ["create", "-n", "demo1", "-a", "claude", "-e", "BAD-KEY="],
+        input="should-not-be-read\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Error:" in result.stderr
+    assert "Environment variable key must match" in result.stderr
+    assert "Value for" not in result.stdout
+    assert "Traceback" not in result.stderr
+    assert not EnvironmentStore().exists("demo1")
 
 
 def test_create_reports_docker_not_found_without_traceback(tmp_path, monkeypatch):

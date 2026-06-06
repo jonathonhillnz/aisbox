@@ -21,6 +21,7 @@ from aisbox.commands import (
     unset_env_var,
 )
 from aisbox.errors import AisboxError
+from aisbox.validation import parse_env_assignment
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -49,6 +50,21 @@ def effective_environment_name(name: str | None) -> str:
     raise typer.Exit(code=1)
 
 
+def resolve_env_assignments(assignments: list[str]) -> list[str]:
+    resolved = []
+    for assignment in assignments:
+        key, value = parse_env_assignment(assignment)
+        if value == "":
+            value = typer.prompt(
+                f"Value for {key}",
+                default="",
+                hide_input=True,
+                show_default=False,
+            )
+        resolved.append(f"{key}={value}")
+    return resolved
+
+
 @app.callback()
 def root(
     version: Optional[bool] = typer.Option(
@@ -70,7 +86,8 @@ def create(
     workspace: str | None = typer.Option(None, "--workspace"),
 ) -> None:
     try:
-        created = create_environment(name, agent, env, workspace)
+        assignments = resolve_env_assignments(env)
+        created = create_environment(name, agent, assignments, workspace)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Created {created.name}")
