@@ -185,8 +185,47 @@ def test_public_preview_files_exist():
         ".github/ISSUE_TEMPLATE/feature_request.yml",
         ".github/ISSUE_TEMPLATE/config.yml",
         ".github/pull_request_template.md",
+        ".github/workflows/ci.yml",
     ]:
         assert (ROOT / path).is_file()
+
+
+def test_ci_workflow_tests_supported_python_versions_without_docker():
+    workflow = load_yaml(".github/workflows/ci.yml")
+
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["on"] == {"push": None, "pull_request": None}
+
+    jobs = workflow["jobs"]
+    assert isinstance(jobs, dict)
+    job = jobs["test"]
+    assert isinstance(job, dict)
+    assert job["runs-on"] == "ubuntu-latest"
+    assert job["strategy"]["fail-fast"] is False
+    assert job["strategy"]["matrix"]["python-version"] == ["3.11", "3.12", "3.13"]
+
+    steps = job["steps"]
+    assert all(isinstance(step, dict) for step in steps)
+    assert "actions/checkout@v4" in [step.get("uses") for step in steps]
+
+    setup_python = next(
+        step for step in steps if step.get("uses") == "actions/setup-python@v5"
+    )
+    assert setup_python["with"]["python-version"] == "${{ matrix.python-version }}"
+    assert setup_python["with"]["cache"] == "pip"
+
+    run_commands = [step["run"] for step in steps if "run" in step]
+    assert "python -m pip install --upgrade pip" in run_commands
+    assert 'python -m pip install -e ".[dev]"' in run_commands
+    assert "pytest" in run_commands
+    assert "container" not in job
+    assert "services" not in job
+    assert all("docker" not in command.casefold() for command in run_commands)
+    assert all(
+        "docker" not in step.get("uses", "").casefold()
+        for step in steps
+        if isinstance(step.get("uses"), str)
+    )
 
 
 def test_package_and_repository_use_apache_2_license():
