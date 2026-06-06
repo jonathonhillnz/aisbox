@@ -87,6 +87,32 @@ def test_managed_file_symlink_is_rejected_without_changing_external_target(
     assert mode(external_file) == 0o640
 
 
+@pytest.mark.parametrize("managed_file", ["environment.json", "settings.json"])
+def test_managed_fifo_is_rejected_without_changing_or_replacing_it(
+    aisbox_home, tmp_path, managed_file
+):
+    store = EnvironmentStore()
+    if managed_file == "environment.json":
+        env_dir = aisbox_home / "demo1"
+        env_dir.mkdir(parents=True)
+        managed_path = env_dir / managed_file
+        write = lambda: store.save(make_env(tmp_path))
+    else:
+        aisbox_home.mkdir()
+        managed_path = aisbox_home / managed_file
+        write = lambda: store.write_settings({"default_environment": "demo1"})
+    os.mkfifo(managed_path, 0o640)
+    original = managed_path.lstat()
+
+    with pytest.raises(AisboxError, match="Managed state path"):
+        write()
+
+    current = managed_path.lstat()
+    assert stat.S_ISFIFO(current.st_mode)
+    assert current.st_ino == original.st_ino
+    assert stat.S_IMODE(current.st_mode) == stat.S_IMODE(original.st_mode)
+
+
 @pytest.mark.parametrize("managed_dir", ["environment", "config", "files"])
 def test_managed_directory_symlink_is_rejected_without_changing_external_target(
     aisbox_home, tmp_path, managed_dir

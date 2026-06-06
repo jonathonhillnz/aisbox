@@ -48,13 +48,14 @@ def _write_private_text(path: Path, text: str) -> None:
         flags = (
             os.O_WRONLY
             | os.O_CREAT
-            | os.O_TRUNC
             | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
         )
         fd = os.open(path, flags, 0o600)
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise AisboxError(f"Managed state path is not a regular file: {path}")
         os.fchmod(fd, 0o600)
+        os.ftruncate(fd, 0)
         file = os.fdopen(fd, "w", encoding="utf-8")
         fd = None
         with file:
