@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -21,6 +23,10 @@ def make_env(workspace: Path) -> Environment:
     )
 
 
+def mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
 def test_save_and_load_environment(aisbox_home, tmp_path):
     store = EnvironmentStore()
     env = make_env(tmp_path)
@@ -30,6 +36,60 @@ def test_save_and_load_environment(aisbox_home, tmp_path):
 
     assert loaded == env
     assert (aisbox_home / "demo1" / "environment.json").exists()
+
+
+def test_managed_state_uses_restrictive_modes_regardless_of_umask(
+    aisbox_home, tmp_path
+):
+    store = EnvironmentStore()
+    previous_umask = os.umask(0o022)
+    try:
+        store.create_dirs("demo1", "claude")
+        store.save(make_env(tmp_path))
+        store.write_settings({"default_environment": "demo1"})
+    finally:
+        os.umask(previous_umask)
+
+    assert mode(aisbox_home) == 0o700
+    assert mode(aisbox_home / "demo1") == 0o700
+    assert mode(aisbox_home / "demo1" / "config") == 0o700
+    assert mode(aisbox_home / "demo1" / "files") == 0o700
+    assert mode(aisbox_home / "demo1" / "environment.json") == 0o600
+    assert mode(aisbox_home / "settings.json") == 0o600
+
+
+def test_managed_state_tightens_existing_modes_without_changing_external_workspace(
+    aisbox_home, tmp_path
+):
+    env_dir = aisbox_home / "demo1"
+    config_dir = env_dir / "config"
+    files_dir = env_dir / "files"
+    external_workspace = tmp_path / "external-workspace"
+    for path in [config_dir, files_dir, external_workspace]:
+        path.mkdir(parents=True, exist_ok=True)
+        path.chmod(0o755)
+    aisbox_home.chmod(0o755)
+    env_dir.chmod(0o755)
+
+    environment_path = env_dir / "environment.json"
+    settings_path = aisbox_home / "settings.json"
+    environment_path.write_text("{}\n", encoding="utf-8")
+    settings_path.write_text("{}\n", encoding="utf-8")
+    environment_path.chmod(0o644)
+    settings_path.chmod(0o644)
+
+    store = EnvironmentStore()
+    store.create_dirs("demo1", "claude")
+    store.save(make_env(external_workspace))
+    store.write_settings({"default_environment": "demo1"})
+
+    assert mode(aisbox_home) == 0o700
+    assert mode(env_dir) == 0o700
+    assert mode(config_dir) == 0o700
+    assert mode(files_dir) == 0o700
+    assert mode(environment_path) == 0o600
+    assert mode(settings_path) == 0o600
+    assert mode(external_workspace) == 0o755
 
 
 def test_root_override_expands_user_home(tmp_path, monkeypatch):

@@ -20,17 +20,23 @@ workspace and additional directory you mount.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
 - Runtime containers are disposable. Persistence comes from explicit bind
   mounts and stored environment configuration.
+- `aisbox` creates managed state directories with mode `0700` and managed
+  state files with mode `0600`, and tightens those permissions on subsequent
+  writes.
 - Containers use Docker's default outbound network access. Agents can send
   mounted or supplied data over the network, so mount only trusted, necessary
   data.
 - Environment variable values are stored unencrypted in
-  `<state-root>/<name>/environment.json`. Protect the state root and its
-  permissions as sensitive data.
+  `<state-root>/<name>/environment.json`. The restrictive managed-state
+  permissions reduce local exposure, but protect the state root as sensitive
+  data.
 
 ## Requirements
 
+- Supported hosts are POSIX systems (Linux and macOS). Native Windows hosts are
+  not supported during the public preview.
 - Python 3.11 or newer
-- Docker Engine available to the current user without `sudo`
+- Docker access available to the current user without `sudo`
 - `pipx` for the recommended CLI installation
 - Network access for Docker image builds, which install Ubuntu packages and npm
   agent CLIs
@@ -97,10 +103,11 @@ aisbox env set -n demo1 OPENAI_API_KEY=value
 Values provided through `-e` or `aisbox env set` are stored unencrypted in the
 environment's `environment.json`, and Docker receives them as environment
 settings. Command-line assignment values may remain in shell history and,
-depending on the host, may be observable to local processes or users. Protect
-`AISBOX_HOME` and state permissions, do not share tokens in logs or reports,
-and prefer interactive authentication when suitable. `aisbox inspect` masks
-stored values.
+depending on the host, may be observable to local processes or users. `aisbox`
+creates managed state directories with mode `0700` and managed state files with
+mode `0600`, but credentials remain stored unencrypted. Protect `AISBOX_HOME`,
+do not share tokens in logs or reports, and prefer interactive authentication
+when suitable. `aisbox inspect` masks stored values.
 
 ## Workspaces And Persistence
 

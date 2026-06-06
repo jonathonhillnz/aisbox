@@ -498,6 +498,19 @@ def test_readme_documents_preview_security_boundaries():
     assert "after the container exits" in normalized
 
 
+def test_readme_documents_platform_scope_and_managed_state_permissions():
+    normalized = " ".join(read_text("README.md").lower().split())
+
+    assert "posix" in normalized
+    assert "linux and macos" in normalized
+    assert "native windows hosts are not supported during the public preview" in normalized
+    assert "0700" in normalized
+    assert "0600" in normalized
+    assert "managed state directories" in normalized
+    assert "managed state files" in normalized
+    assert "stored unencrypted" in normalized
+
+
 def test_readme_places_delete_after_environment_operations():
     readme = read_text("README.md")
     commands = readme.split("## Commands", 1)[1].split("## Known Preview Limitations", 1)[0]

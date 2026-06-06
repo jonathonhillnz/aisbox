@@ -11,6 +11,19 @@ from aisbox.models import Environment, Mount
 from aisbox.validation import parse_env_assignment, validate_env_name, validate_mount_alias
 
 
+def _ensure_private_dir(path: Path) -> None:
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.chmod(0o700)
+
+
+def _write_private_text(path: Path, text: str) -> None:
+    if path.exists():
+        path.chmod(0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as file:
+        file.write(text)
+
+
 class EnvironmentStore:
     def __init__(self, root: Path | None = None) -> None:
         self.root = Path(root or os.environ.get("AISBOX_HOME", "~/.aisbox")).expanduser()
@@ -40,10 +53,10 @@ class EnvironmentStore:
         return payload
 
     def write_settings(self, settings: dict[str, object]) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        self.settings_path().write_text(
+        _ensure_private_dir(self.root)
+        _write_private_text(
+            self.settings_path(),
             json.dumps(settings, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
         )
 
     def set_default_environment(self, name: str) -> None:
@@ -75,16 +88,20 @@ class EnvironmentStore:
 
     def create_dirs(self, name: str, agent: str) -> None:
         validate_env_name(agent)
-        self.config_dir(name).mkdir(parents=True, exist_ok=True)
-        self.default_workspace(name).mkdir(parents=True, exist_ok=True)
+        env_dir = self.env_dir(name)
+        _ensure_private_dir(self.root)
+        _ensure_private_dir(env_dir)
+        _ensure_private_dir(self.config_dir(name))
+        _ensure_private_dir(self.default_workspace(name))
 
     def save(self, env: Environment) -> None:
         env_dir = self.env_dir(env.name)
-        env_dir.mkdir(parents=True, exist_ok=True)
+        _ensure_private_dir(self.root)
+        _ensure_private_dir(env_dir)
         payload = asdict(env)
-        (env_dir / "environment.json").write_text(
+        _write_private_text(
+            env_dir / "environment.json",
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
         )
 
     def load(self, name: str) -> Environment:
