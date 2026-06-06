@@ -192,6 +192,7 @@ def test_public_preview_files_exist():
 
 def test_ci_workflow_tests_supported_python_versions_without_docker():
     workflow = load_yaml(".github/workflows/ci.yml")
+    workflow_text = read_text(".github/workflows/ci.yml")
 
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["on"] == {"push": None, "pull_request": None}
@@ -206,11 +207,20 @@ def test_ci_workflow_tests_supported_python_versions_without_docker():
 
     steps = job["steps"]
     assert all(isinstance(step, dict) for step in steps)
-    assert "actions/checkout@v4" in [step.get("uses") for step in steps]
-
-    setup_python = next(
-        step for step in steps if step.get("uses") == "actions/setup-python@v5"
+    action_refs = [step["uses"] for step in steps if "uses" in step]
+    assert all(
+        re.fullmatch(r"actions/(checkout|setup-python)@[0-9a-f]{40}", ref)
+        for ref in action_refs
     )
+    checkout_ref = "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+    setup_python_ref = (
+        "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405"
+    )
+    assert checkout_ref in action_refs
+    assert f"uses: {checkout_ref} # v6.0.2" in workflow_text
+    assert f"uses: {setup_python_ref} # v6.2.0" in workflow_text
+
+    setup_python = next(step for step in steps if step.get("uses") == setup_python_ref)
     assert setup_python["with"]["python-version"] == "${{ matrix.python-version }}"
     assert setup_python["with"]["cache"] == "pip"
 
