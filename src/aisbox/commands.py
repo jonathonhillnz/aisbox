@@ -126,6 +126,20 @@ def set_env_var(
     return key
 
 
+def set_env_vars(
+    name: str,
+    assignments: list[str],
+    store: EnvironmentStore | None = None,
+) -> list[str]:
+    parsed = [parse_env_assignment(assignment) for assignment in assignments]
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    for key, value in parsed:
+        env.env[key] = value
+    store.save(env)
+    return [key for key, _ in parsed]
+
+
 def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) -> None:
     store = store or EnvironmentStore()
     env = store.load(name)
@@ -133,6 +147,25 @@ def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) ->
         raise AisboxError(f"Environment variable is not set: {key}")
     del env.env[key]
     store.save(env)
+
+
+def unset_env_vars(
+    name: str,
+    keys: list[str],
+    store: EnvironmentStore | None = None,
+) -> list[str]:
+    validated = [parse_env_assignment(f"{key}=ignored")[0] for key in keys]
+    if len(validated) != len(set(validated)):
+        raise AisboxError("Environment variable keys must not be repeated")
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    for key in validated:
+        if key not in env.env:
+            raise AisboxError(f"Environment variable is not set: {key}")
+    for key in validated:
+        del env.env[key]
+    store.save(env)
+    return validated
 
 
 def run_environment(

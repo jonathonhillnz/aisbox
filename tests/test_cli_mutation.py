@@ -1,9 +1,32 @@
+from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
 from aisbox.cli import app
+from aisbox.commands import set_env_vars, unset_env_vars
+from aisbox.errors import AisboxError
+from aisbox.models import Environment
+from aisbox.store import EnvironmentStore
 
 
 runner = CliRunner()
+
+
+def make_stored_environment(tmp_path: Path) -> EnvironmentStore:
+    store = EnvironmentStore(tmp_path / "aisbox-home")
+    store.save(
+        Environment(
+            name="demo1",
+            agent="claude",
+            env={"EXISTING": "old", "REMOVE": "one", "ALSO_REMOVE": "two"},
+            workspace=str(tmp_path),
+            mounts=[],
+            image="aisbox/claude:latest",
+            created_at="2026-06-07T00:00:00Z",
+        )
+    )
+    return store
 
 
 def create_demo(monkeypatch):
@@ -134,3 +157,58 @@ def test_env_unset_missing_key_exits_nonzero_with_error(tmp_path, monkeypatch):
     assert result.exit_code == 1
     assert "Error:" in result.stderr
     assert "Environment variable is not set: TOKEN" in result.stderr
+
+
+def test_set_env_vars_sets_multiple_values_with_last_duplicate_winning(tmp_path):
+    store = make_stored_environment(tmp_path)
+
+    keys = set_env_vars(
+        "demo1",
+        ["TOKEN=abc", "EXISTING=new", "TOKEN=final"],
+        store=store,
+    )
+
+    assert keys == ["TOKEN", "EXISTING", "TOKEN"]
+    assert store.load("demo1").env == {
+        "EXISTING": "new",
+        "REMOVE": "one",
+        "ALSO_REMOVE": "two",
+        "TOKEN": "final",
+    }
+
+
+def test_set_env_vars_invalid_assignment_is_atomic(tmp_path):
+    store = make_stored_environment(tmp_path)
+    original = store.load("demo1").env
+
+    with pytest.raises(AisboxError, match="Environment variable must be KEY=VALUE"):
+        set_env_vars("demo1", ["TOKEN=abc", "INVALID"], store=store)
+
+    assert store.load("demo1").env == original
+
+
+def test_unset_env_vars_removes_multiple_values(tmp_path):
+    store = make_stored_environment(tmp_path)
+
+    keys = unset_env_vars("demo1", ["REMOVE", "ALSO_REMOVE"], store=store)
+
+    assert keys == ["REMOVE", "ALSO_REMOVE"]
+    assert store.load("demo1").env == {"EXISTING": "old"}
+
+
+@pytest.mark.parametrize(
+    ("keys", "message"),
+    [
+        (["REMOVE", "MISSING"], "Environment variable is not set: MISSING"),
+        (["REMOVE", "REMOVE"], "Environment variable keys must not be repeated"),
+        (["REMOVE", "BAD-KEY"], "Environment variable key must match"),
+    ],
+)
+def test_unset_env_vars_validation_is_atomic(tmp_path, keys, message):
+    store = make_stored_environment(tmp_path)
+    original = store.load("demo1").env
+
+    with pytest.raises(AisboxError, match=message):
+        unset_env_vars("demo1", keys, store=store)
+
+    assert store.load("demo1").env == original
