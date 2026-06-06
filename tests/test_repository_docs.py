@@ -41,3 +41,48 @@ def test_load_yaml_rejects_non_mapping_documents(tmp_path, monkeypatch):
 
     with pytest.raises(TypeError, match="mapping"):
         load_yaml("document.yml")
+
+
+def test_readme_states_preview_and_safety_contract():
+    readme = read_text("README.md")
+
+    for text in [
+        "Public preview",
+        "Python 3.11",
+        "Docker",
+        "pipx",
+        "AISBOX_HOME",
+        "Host `~/.claude` and `~/.codex` directories are not copied or mounted.",
+        "does not run Docker through `sudo`",
+        "Runtime containers are disposable",
+        "Claude",
+        "Codex",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "Apache-2.0",
+    ]:
+        assert text in readme
+
+    assert "production-ready" not in readme
+
+
+def test_readme_documents_all_cli_commands():
+    readme = read_text("README.md")
+
+    for command in [
+        "aisbox create",
+        "aisbox list",
+        "aisbox inspect",
+        "aisbox delete",
+        "aisbox mount",
+        "aisbox unmount",
+        "aisbox env set",
+        "aisbox env unset",
+        "aisbox run",
+        "aisbox attach",
+        "aisbox shell",
+        "aisbox rebuild",
+        "aisbox set default",
+        "aisbox doctor",
+    ]:
+        assert command in readme
