@@ -15,13 +15,17 @@ def validate_env_name(name: str) -> str:
     return name
 
 
+def validate_env_key(key: str) -> str:
+    if not key or not ENV_KEY_RE.match(key):
+        raise AisboxError("Environment variable key must match [A-Za-z_][A-Za-z0-9_]*")
+    return key
+
+
 def parse_env_assignment(assignment: str) -> tuple[str, str]:
     if "=" not in assignment:
         raise AisboxError("Environment variable must be KEY=VALUE")
     key, value = assignment.split("=", 1)
-    if not key or not ENV_KEY_RE.match(key):
-        raise AisboxError("Environment variable key must match [A-Za-z_][A-Za-z0-9_]*")
-    return key, value
+    return validate_env_key(key), value
 
 
 def validate_mount_alias(alias: str) -> str:

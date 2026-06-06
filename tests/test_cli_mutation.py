@@ -239,6 +239,7 @@ def test_unset_env_vars_removes_multiple_values(tmp_path):
         (["REMOVE", "MISSING"], "Environment variable is not set: MISSING"),
         (["REMOVE", "REMOVE"], "Environment variable keys must not be repeated"),
         (["REMOVE", "BAD-KEY"], "Environment variable key must match"),
+        (["REMOVE", "EXISTING=value"], "Environment variable key must match"),
     ],
 )
 def test_unset_env_vars_validation_is_atomic(tmp_path, keys, message):

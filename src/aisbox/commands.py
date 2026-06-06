@@ -11,7 +11,12 @@ from aisbox.docker import build_image, docker_available, run_container
 from aisbox.errors import AisboxError
 from aisbox.models import Environment, Mount
 from aisbox.store import EnvironmentStore
-from aisbox.validation import parse_env_assignment, validate_env_name, validate_mount_alias
+from aisbox.validation import (
+    parse_env_assignment,
+    validate_env_key,
+    validate_env_name,
+    validate_mount_alias,
+)
 
 
 def create_environment(
@@ -132,7 +137,7 @@ def unset_env_vars(
     keys: list[str],
     store: EnvironmentStore | None = None,
 ) -> list[str]:
-    validated = [parse_env_assignment(f"{key}=ignored")[0] for key in keys]
+    validated = [validate_env_key(key) for key in keys]
     if len(validated) != len(set(validated)):
         raise AisboxError("Environment variable keys must not be repeated")
     store = store or EnvironmentStore()
