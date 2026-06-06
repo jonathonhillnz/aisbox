@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from aisbox.commands import resolve_environment_name, set_default_environment
 from aisbox.errors import AisboxError
 from aisbox.models import Environment, Mount
 from aisbox.store import EnvironmentStore
@@ -182,3 +183,82 @@ def test_delete_partial_directory_without_state_file_raises(aisbox_home):
         store.delete("partial")
 
     assert partial_dir.exists()
+
+
+def test_set_and_load_default_environment(aisbox_home, tmp_path):
+    store = EnvironmentStore()
+    store.save(make_env(tmp_path))
+
+    store.set_default_environment("demo1")
+
+    assert store.load_default_environment() == "demo1"
+    payload = json.loads((aisbox_home / "settings.json").read_text(encoding="utf-8"))
+    assert payload == {"default_environment": "demo1"}
+
+
+def test_set_default_environment_rejects_missing_environment(aisbox_home):
+    store = EnvironmentStore()
+
+    with pytest.raises(AisboxError, match="Environment does not exist: missing"):
+        store.set_default_environment("missing")
+
+    assert not (aisbox_home / "settings.json").exists()
+
+
+def test_delete_default_environment_clears_only_default_setting(aisbox_home, tmp_path):
+    store = EnvironmentStore()
+    store.save(make_env(tmp_path))
+    store.write_settings({"default_environment": "demo1", "future_setting": "kept"})
+
+    store.delete("demo1")
+
+    assert store.read_settings() == {"future_setting": "kept"}
+
+
+def test_load_default_environment_rejects_unsafe_persisted_name(aisbox_home):
+    store = EnvironmentStore()
+    aisbox_home.mkdir(parents=True)
+    (aisbox_home / "settings.json").write_text(
+        json.dumps({"default_environment": "../demo"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(AisboxError, match=r"Environment name must match"):
+        store.load_default_environment()
+
+
+def test_command_resolve_environment_name_prefers_explicit_name(aisbox_home, tmp_path):
+    store = EnvironmentStore()
+    store.save(make_env(tmp_path))
+    env2 = make_env(tmp_path)
+    env2.name = "demo2"
+    store.save(env2)
+    store.set_default_environment("demo1")
+
+    assert resolve_environment_name("demo2", store) == "demo2"
+
+
+def test_command_resolve_environment_name_uses_default(aisbox_home, tmp_path):
+    store = EnvironmentStore()
+    store.save(make_env(tmp_path))
+    store.set_default_environment("demo1")
+
+    assert resolve_environment_name(None, store) == "demo1"
+
+
+def test_command_resolve_environment_name_requires_name_or_default(aisbox_home):
+    store = EnvironmentStore()
+
+    with pytest.raises(
+        AisboxError,
+        match="No environment specified and no default environment is set",
+    ):
+        resolve_environment_name(None, store)
+
+
+def test_command_set_default_environment_returns_name(aisbox_home, tmp_path):
+    store = EnvironmentStore()
+    store.save(make_env(tmp_path))
+
+    assert set_default_environment("demo1", store) == "demo1"
+    assert store.load_default_environment() == "demo1"

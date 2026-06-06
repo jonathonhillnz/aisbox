@@ -27,7 +27,8 @@ pytest
 ```bash
 aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
 aisbox create -n demo1 -a codex --workspace /path/to/source
-aisbox run -n demo1 -- "summarize this repository"
+aisbox set default -n demo1
+aisbox run -- "summarize this repository"
 aisbox attach -n demo1
 aisbox shell -n demo1
 aisbox list

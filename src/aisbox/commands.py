@@ -62,6 +62,26 @@ def delete_environment(name: str, store: EnvironmentStore | None = None) -> None
     (store or EnvironmentStore()).delete(name)
 
 
+def set_default_environment(name: str, store: EnvironmentStore | None = None) -> str:
+    store = store or EnvironmentStore()
+    name = validate_env_name(name)
+    store.set_default_environment(name)
+    return name
+
+
+def resolve_environment_name(
+    name: str | None,
+    store: EnvironmentStore | None = None,
+) -> str:
+    store = store or EnvironmentStore()
+    if name is not None:
+        return validate_env_name(name)
+    default_name = store.load_default_environment()
+    if default_name is None:
+        raise AisboxError("No environment specified and no default environment is set")
+    return default_name
+
+
 def add_mount(
     name: str,
     source: str,

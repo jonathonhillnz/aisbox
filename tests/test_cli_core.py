@@ -116,6 +116,44 @@ def test_delete_environment_with_force(tmp_path, monkeypatch):
     assert runner.invoke(app, ["list"]).stdout.strip() == "No environments found"
 
 
+def test_set_default_environment_command(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
+
+    result = runner.invoke(app, ["set", "default", "-n", "demo1"])
+
+    assert result.exit_code == 0
+    assert "Default environment set to demo1" in result.stdout
+
+
+def test_environment_command_without_name_and_without_default_errors_cleanly(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+
+    result = runner.invoke(app, ["inspect"])
+
+    assert result.exit_code == 1
+    assert "No environment specified and no default environment is set" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_delete_default_environment_clears_cli_default(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
+    runner.invoke(app, ["set", "default", "-n", "demo1"])
+
+    deleted = runner.invoke(app, ["delete", "--force"])
+    inspected = runner.invoke(app, ["inspect"])
+
+    assert deleted.exit_code == 0
+    assert "Deleted demo1" in deleted.stdout
+    assert inspected.exit_code == 1
+    assert "No environment specified and no default environment is set" in inspected.stderr
+
+
 def test_readme_documents_primary_commands():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(
         encoding="utf-8"
@@ -129,6 +167,7 @@ def test_readme_documents_primary_commands():
         "aisbox list",
         "aisbox inspect",
         "aisbox rebuild",
+        "aisbox set default",
         "aisbox mount",
         "aisbox unmount",
         "aisbox env set",

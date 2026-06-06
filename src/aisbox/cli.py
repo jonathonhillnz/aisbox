@@ -14,7 +14,9 @@ from aisbox.commands import (
     list_environments,
     rebuild_environment,
     remove_mount,
+    resolve_environment_name,
     run_environment,
+    set_default_environment as set_default_environment_command,
     set_env_var,
     unset_env_var,
 )
@@ -23,7 +25,9 @@ from aisbox.errors import AisboxError
 
 app = typer.Typer(no_args_is_help=True)
 env_app = typer.Typer(no_args_is_help=True)
+set_app = typer.Typer(no_args_is_help=True)
 app.add_typer(env_app, name="env")
+app.add_typer(set_app, name="set")
 
 
 def version_callback(value: bool) -> None:
@@ -34,6 +38,14 @@ def version_callback(value: bool) -> None:
 
 def handle_error(exc: AisboxError) -> None:
     typer.echo(f"Error: {exc}", err=True)
+    raise typer.Exit(code=1)
+
+
+def effective_environment_name(name: str | None) -> str:
+    try:
+        return resolve_environment_name(name)
+    except AisboxError as exc:
+        handle_error(exc)
     raise typer.Exit(code=1)
 
 
@@ -78,9 +90,10 @@ def list_envs() -> None:
 
 
 @app.command("inspect")
-def inspect(name: str = typer.Option(..., "-n", "--name")) -> None:
+def inspect(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        env = inspect_environment(name)
+        env = inspect_environment(effective_name)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"name: {env.name}")
@@ -97,26 +110,28 @@ def inspect(name: str = typer.Option(..., "-n", "--name")) -> None:
 
 @app.command("delete")
 def delete(
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
     force: bool = typer.Option(False, "--force"),
 ) -> None:
-    if not force and not typer.confirm(f"Delete environment {name}"):
+    effective_name = effective_environment_name(name)
+    if not force and not typer.confirm(f"Delete environment {effective_name}"):
         raise typer.Exit(code=1)
     try:
-        delete_environment(name)
+        delete_environment(effective_name)
     except AisboxError as exc:
         handle_error(exc)
-    typer.echo(f"Deleted {name}")
+    typer.echo(f"Deleted {effective_name}")
 
 
 @app.command("mount")
 def mount(
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
     source: str = typer.Argument(...),
     alias: str = typer.Argument(...),
 ) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        created = add_mount(name, source, alias)
+        created = add_mount(effective_name, source, alias)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Mounted {created.alias}")
@@ -124,11 +139,12 @@ def mount(
 
 @app.command("unmount")
 def unmount(
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
     alias: str = typer.Argument(...),
 ) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        remove_mount(name, alias)
+        remove_mount(effective_name, alias)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unmounted {alias}")
@@ -137,10 +153,11 @@ def unmount(
 @env_app.command("set")
 def env_set(
     assignment: str = typer.Argument(...),
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
 ) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        key = set_env_var(name, assignment)
+        key = set_env_var(effective_name, assignment)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Set {key}")
@@ -149,10 +166,11 @@ def env_set(
 @env_app.command("unset")
 def env_unset(
     key: str = typer.Argument(...),
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
 ) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        unset_env_var(name, key)
+        unset_env_var(effective_name, key)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Unset {key}")
@@ -161,38 +179,51 @@ def env_unset(
 @app.command("run", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def run(
     ctx: typer.Context,
-    name: str = typer.Option(..., "-n", "--name"),
+    name: str | None = typer.Option(None, "-n", "--name"),
 ) -> None:
+    effective_name = effective_environment_name(name)
     prompt = " ".join(ctx.args) if ctx.args else None
     try:
-        run_environment(name, "run", prompt)
+        run_environment(effective_name, "run", prompt)
     except AisboxError as exc:
         handle_error(exc)
 
 
 @app.command("attach")
-def attach(name: str = typer.Option(..., "-n", "--name")) -> None:
+def attach(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        run_environment(name, "attach")
+        run_environment(effective_name, "attach")
     except AisboxError as exc:
         handle_error(exc)
 
 
 @app.command("shell")
-def shell(name: str = typer.Option(..., "-n", "--name")) -> None:
+def shell(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        run_environment(name, "shell")
+        run_environment(effective_name, "shell")
     except AisboxError as exc:
         handle_error(exc)
 
 
 @app.command("rebuild")
-def rebuild(name: str = typer.Option(..., "-n", "--name")) -> None:
+def rebuild(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
     try:
-        rebuild_environment(name)
+        rebuild_environment(effective_name)
     except AisboxError as exc:
         handle_error(exc)
-    typer.echo(f"Rebuilt {name}")
+    typer.echo(f"Rebuilt {effective_name}")
+
+
+@set_app.command("default")
+def set_default(name: str = typer.Option(..., "-n", "--name")) -> None:
+    try:
+        default_name = set_default_environment_command(name)
+    except AisboxError as exc:
+        handle_error(exc)
+    typer.echo(f"Default environment set to {default_name}")
 
 
 @app.command("doctor")

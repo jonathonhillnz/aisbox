@@ -42,6 +42,38 @@ def test_run_without_prompt_passes_none(tmp_path, monkeypatch):
     assert runner_mock.call_args.args[4] is None
 
 
+def test_run_uses_default_environment_when_name_omitted(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner.invoke(app, ["set", "default", "-n", "demo1"])
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(app, ["run", "--", "hello"])
+
+    assert result.exit_code == 0
+    env, agent, config_source, mode, prompt = runner_mock.call_args.args
+    assert env.name == "demo1"
+    assert agent.name == "claude"
+    assert config_source.endswith("/config")
+    assert mode == "run"
+    assert prompt == "hello"
+
+
+def test_run_explicit_name_overrides_default_environment(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    runner.invoke(app, ["create", "-n", "demo2", "-a", "claude"])
+    runner.invoke(app, ["set", "default", "-n", "demo1"])
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(app, ["run", "-n", "demo2", "--", "hello"])
+
+    assert result.exit_code == 0
+    env = runner_mock.call_args.args[0]
+    assert env.name == "demo2"
+
+
 def test_attach_and_shell_use_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()

@@ -24,8 +24,54 @@ class EnvironmentStore:
     def default_workspace(self, name: str) -> Path:
         return self.env_dir(name) / "files"
 
+    def settings_path(self) -> Path:
+        return self.root / "settings.json"
+
     def exists(self, name: str) -> bool:
         return (self.env_dir(name) / "environment.json").exists()
+
+    def read_settings(self) -> dict[str, object]:
+        path = self.settings_path()
+        if not path.exists():
+            return {}
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise AisboxError("Settings file must contain a JSON object")
+        return payload
+
+    def write_settings(self, settings: dict[str, object]) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.settings_path().write_text(
+            json.dumps(settings, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def set_default_environment(self, name: str) -> None:
+        name = validate_env_name(name)
+        if not self.exists(name):
+            raise AisboxError(f"Environment does not exist: {name}")
+        settings = self.read_settings()
+        settings["default_environment"] = name
+        self.write_settings(settings)
+
+    def load_default_environment(self) -> str | None:
+        settings = self.read_settings()
+        name = settings.get("default_environment")
+        if name is None:
+            return None
+        if not isinstance(name, str):
+            raise AisboxError("Default environment setting must be a string")
+        name = validate_env_name(name)
+        if not self.exists(name):
+            raise AisboxError(f"Environment does not exist: {name}")
+        return name
+
+    def clear_default_environment(self) -> None:
+        settings = self.read_settings()
+        if "default_environment" not in settings:
+            return
+        del settings["default_environment"]
+        self.write_settings(settings)
 
     def create_dirs(self, name: str, agent: str) -> None:
         validate_env_name(agent)
@@ -71,4 +117,7 @@ class EnvironmentStore:
     def delete(self, name: str) -> None:
         if not self.exists(name):
             raise AisboxError(f"Environment does not exist: {name}")
+        current_default = self.load_default_environment()
+        if current_default == validate_env_name(name):
+            self.clear_default_environment()
         shutil.rmtree(self.env_dir(name))
