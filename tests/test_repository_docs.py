@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import tomllib
 from typing import Any
 
@@ -7,6 +8,11 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PRIVATE_REPORTING_GUIDANCE_URL = (
+    "https://docs.github.com/en/code-security/security-advisories/"
+    "working-with-repository-security-advisories/"
+    "privately-reporting-a-security-vulnerability"
+)
 
 
 def read_text(path: str) -> str:
@@ -18,6 +24,81 @@ def load_yaml(path: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise TypeError("YAML document must be a mapping")
     return data
+
+
+def assert_valid_issue_form(form: dict[str, Any]) -> None:
+    assert form.keys() <= {
+        "name",
+        "description",
+        "title",
+        "labels",
+        "assignees",
+        "body",
+    }
+    assert isinstance(form.get("name"), str) and form["name"].strip()
+    assert isinstance(form.get("description"), str) and form["description"].strip()
+    assert isinstance(form.get("body"), list) and form["body"]
+
+    attribute_keys = {
+        "markdown": {"value"},
+        "input": {"label", "description", "placeholder", "value"},
+        "textarea": {"label", "description", "placeholder", "value", "render"},
+        "dropdown": {"label", "description", "multiple", "options"},
+        "checkboxes": {"label", "description", "options"},
+    }
+    field_ids: set[str] = set()
+
+    for item in form["body"]:
+        assert isinstance(item, dict)
+        assert item.keys() <= {"type", "id", "attributes", "validations"}
+
+        item_type = item.get("type")
+        assert isinstance(item_type, str)
+        assert item_type in attribute_keys
+        attributes = item.get("attributes")
+        assert isinstance(attributes, dict)
+        assert attributes.keys() <= attribute_keys[item_type]
+
+        validations = item.get("validations")
+        if validations is not None:
+            assert isinstance(validations, dict)
+            assert validations.keys() <= {"required"}
+            if "required" in validations:
+                assert isinstance(validations["required"], bool)
+
+        if item_type == "markdown":
+            assert "id" not in item
+            assert isinstance(attributes.get("value"), str)
+            assert attributes["value"].strip()
+            continue
+
+        field_id = item.get("id")
+        assert isinstance(field_id, str)
+        assert re.fullmatch(r"[A-Za-z0-9_-]+", field_id)
+        assert field_id not in field_ids
+        field_ids.add(field_id)
+
+        assert isinstance(attributes.get("label"), str)
+        assert attributes["label"].strip()
+        for key in {"description", "placeholder", "value", "render"} & attributes.keys():
+            assert isinstance(attributes[key], str)
+
+        if item_type == "dropdown":
+            if "multiple" in attributes:
+                assert isinstance(attributes["multiple"], bool)
+            options = attributes.get("options")
+            assert isinstance(options, list) and options
+            assert all(isinstance(option, str) and option.strip() for option in options)
+
+        if item_type == "checkboxes":
+            options = attributes.get("options")
+            assert isinstance(options, list)
+            for option in options:
+                assert isinstance(option, dict)
+                assert option.keys() <= {"label", "required"}
+                assert isinstance(option.get("label"), str) and option["label"].strip()
+                if "required" in option:
+                    assert isinstance(option["required"], bool)
 
 
 def test_public_preview_files_exist():
@@ -118,11 +199,13 @@ def test_issue_forms_are_valid_and_have_required_fields():
     bug = load_yaml(".github/ISSUE_TEMPLATE/bug_report.yml")
     feature = load_yaml(".github/ISSUE_TEMPLATE/feature_request.yml")
 
+    assert_valid_issue_form(bug)
+    assert_valid_issue_form(feature)
+
     assert bug["name"] == "Bug report"
     assert bug["description"] == "Report reproducible incorrect behavior in aisbox"
     assert bug["title"] == "[Bug]: "
-    assert bug["labels"] == ["bug"]
-    assert isinstance(bug["body"], list)
+    assert "labels" not in bug
 
     bug_fields = {item["id"]: item for item in bug["body"] if "id" in item}
     assert {
@@ -163,16 +246,16 @@ def test_issue_forms_are_valid_and_have_required_fields():
         "credentials",
         "private source",
         "sensitive host data",
-        "private process",
-        "SECURITY.md",
+        "Security policy",
+        "issue chooser",
+        "private reporting guidance",
     ]:
         assert text in bug_guidance
 
     assert feature["name"] == "Feature request"
     assert feature["description"] == "Propose an improvement to aisbox"
     assert feature["title"] == "[Feature]: "
-    assert feature["labels"] == ["enhancement"]
-    assert isinstance(feature["body"], list)
+    assert "labels" not in feature
 
     feature_fields = {item["id"]: item for item in feature["body"] if "id" in item}
     assert {"problem", "proposal", "alternatives", "isolation", "context"} <= (
@@ -197,7 +280,7 @@ def test_issue_config_disables_blank_issues_and_links_security_guidance():
     assert config["blank_issues_enabled"] is False
     security_link = config["contact_links"][0]
     assert security_link["name"] == "Security reporting guidance"
-    assert security_link["url"].startswith("https://docs.github.com/")
+    assert security_link["url"] == PRIVATE_REPORTING_GUIDANCE_URL
     assert "private" in security_link["about"]
     assert "public issue" in security_link["about"]
 
@@ -214,7 +297,8 @@ def test_pull_request_template_covers_review_requirements():
         "exact commands",
         "results",
         "Documentation",
-        "host agent configuration",
+        "Host `~/.claude` and `~/.codex` are not copied or mounted",
+        "additional host directory mounts",
         "mount",
         "secrets",
         "sudo",
@@ -222,6 +306,7 @@ def test_pull_request_template_covers_review_requirements():
         "tracebacks",
     ]:
         assert text in template
+    assert "unexpectedly" not in template
 
 
 def test_readme_states_preview_and_safety_contract():

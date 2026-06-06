@@ -1,14 +1,13 @@
 name: Bug report
 description: Report reproducible incorrect behavior in aisbox
 title: "[Bug]: "
-labels:
-  - bug
 body:
   - type: markdown
     attributes:
       value: |
         Do not include API tokens, credentials, private source code, or sensitive host data.
-        Report security vulnerabilities through the private process in SECURITY.md.
+        For vulnerabilities, review the repository's Security policy and use the
+        issue chooser's private reporting guidance instead of filing a public issue.
   - type: textarea
     id: summary
     attributes:
