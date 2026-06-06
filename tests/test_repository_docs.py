@@ -37,28 +37,61 @@ def test_package_and_repository_use_apache_2_license():
 
 
 def test_contributing_policy_covers_preview_workflow():
-    contributing = read_text("CONTRIBUTING.md")
+    contributing = " ".join(read_text("CONTRIBUTING.md").split())
 
     for text in [
         "public preview",
         "existing issues",
         "substantial",
+        "small documentation corrections",
+        "[SECURITY.md](SECURITY.md)",
+        "not through public issues",
         "Python 3.11",
         "pytest",
         "Docker",
         "credentials",
+        "`tmp_path`",
+        "`AISBOX_HOME`",
+        "`CliRunner`",
+        "Mock Docker",
+        "expected failures do not emit tracebacks",
+        "Link the relevant issue",
+        "exact test commands and results",
+        "Update `README.md`",
+        "`~/.claude`",
+        "`~/.codex`",
+        "broader host mounts",
+        "secrets",
+        "automatic `sudo`",
+        "generated build output",
+        "machine-local files",
+        "contributions are licensed under the Apache-2.0 license",
     ]:
         assert text in contributing
 
 
 def test_security_policy_requires_private_reporting():
-    security = read_text("SECURITY.md")
+    security = " ".join(read_text("SECURITY.md").split())
 
     for text in [
         "Private vulnerability reporting",
         "Do not open a public issue",
         "default branch",
+        "latest tagged preview release, if one exists",
+        "Older commits and releases may not receive fixes",
+        "affected version, tag, or commit",
+        "security boundary and potential impact",
+        "Reproduction steps or a proof of concept",
+        "suggested mitigation",
+        "credentials",
+        "tokens",
+        "private source code",
+        "unrelated host data",
         "best-effort",
+        "Keep vulnerability details private",
+        "coordinated disclosure",
+        "Maintainers must enable GitHub Private vulnerability reporting",
+        "repository security settings after publication",
     ]:
         assert text in security
 
