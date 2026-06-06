@@ -91,7 +91,8 @@ def test_security_policy_requires_private_reporting():
         "Keep vulnerability details private",
         "coordinated disclosure",
         "Maintainers must enable GitHub Private vulnerability reporting",
-        "repository security settings after publication",
+        "before making the repository public",
+        "`Report a vulnerability`",
     ]:
         assert text in security
 

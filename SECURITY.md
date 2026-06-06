@@ -25,4 +25,5 @@ public preview. Keep vulnerability details private until a fix is available or
 maintainers and the reporter agree on coordinated disclosure.
 
 Maintainers must enable GitHub Private vulnerability reporting in the
-repository security settings after publication.
+repository security settings before making the repository public and verify
+that the `Report a vulnerability` option is available.
