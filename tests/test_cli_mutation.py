@@ -118,26 +118,47 @@ def test_env_set_and_unset(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
-    set_result = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=abc"])
+    set_result = runner.invoke(
+        app,
+        [
+            "env",
+            "set",
+            "-n",
+            "demo1",
+            "-e",
+            "TOKEN=",
+            "-e",
+            "MODE=explicit",
+        ],
+        input="prompted\n",
+    )
     inspected = runner.invoke(app, ["inspect", "-n", "demo1"])
-    unset_result = runner.invoke(app, ["env", "unset", "-n", "demo1", "TOKEN"])
+    unset_result = runner.invoke(
+        app,
+        ["env", "unset", "-n", "demo1", "-e", "TOKEN", "-e", "MODE"],
+    )
     inspected_again = runner.invoke(app, ["inspect", "-n", "demo1"])
 
     assert set_result.exit_code == 0
     assert "Set TOKEN" in set_result.stdout
+    assert "Set MODE" in set_result.stdout
+    assert "prompted" not in set_result.stdout
+    assert "explicit" not in set_result.stdout
     assert "TOKEN=<set>" in inspected.stdout
-    assert "abc" not in inspected.stdout
+    assert "MODE=<set>" in inspected.stdout
     assert unset_result.exit_code == 0
     assert "Unset TOKEN" in unset_result.stdout
+    assert "Unset MODE" in unset_result.stdout
     assert "TOKEN=<set>" not in inspected_again.stdout
+    assert "MODE=<set>" not in inspected_again.stdout
 
 
 def test_env_set_overwrites_existing_key_and_redacts_new_value(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
-    first = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=abc"])
-    second = runner.invoke(app, ["env", "set", "-n", "demo1", "TOKEN=xyz"])
+    first = runner.invoke(app, ["env", "set", "-n", "demo1", "-e", "TOKEN=abc"])
+    second = runner.invoke(app, ["env", "set", "-n", "demo1", "-e", "TOKEN=xyz"])
     inspected = runner.invoke(app, ["inspect", "-n", "demo1"])
 
     assert first.exit_code == 0
@@ -152,11 +173,27 @@ def test_env_unset_missing_key_exits_nonzero_with_error(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     create_demo(monkeypatch)
 
-    result = runner.invoke(app, ["env", "unset", "-n", "demo1", "TOKEN"])
+    result = runner.invoke(app, ["env", "unset", "-n", "demo1", "-e", "TOKEN"])
 
     assert result.exit_code == 1
     assert "Error:" in result.stderr
     assert "Environment variable is not set: TOKEN" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["env", "set", "-n", "demo1", "TOKEN=abc"],
+        ["env", "unset", "-n", "demo1", "TOKEN"],
+    ],
+)
+def test_env_commands_reject_old_positional_syntax(tmp_path, monkeypatch, args):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    create_demo(monkeypatch)
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code != 0
 
 
 def test_set_env_vars_sets_multiple_values_with_last_duplicate_winning(tmp_path):

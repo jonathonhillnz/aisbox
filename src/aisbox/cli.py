@@ -17,8 +17,8 @@ from aisbox.commands import (
     resolve_environment_name,
     run_environment,
     set_default_environment as set_default_environment_command,
-    set_env_var,
-    unset_env_var,
+    set_env_vars,
+    unset_env_vars,
 )
 from aisbox.errors import AisboxError
 from aisbox.validation import parse_env_assignment
@@ -82,7 +82,12 @@ def root(
 def create(
     name: str = typer.Option(..., "-n", "--name"),
     agent: str = typer.Option(..., "-a", "--agent"),
-    env: list[str] = typer.Option([], "-e", "--env"),
+    env: list[str] = typer.Option(
+        [],
+        "-e",
+        "--env",
+        help="Set KEY=VALUE; an empty value prompts without echo.",
+    ),
     workspace: str | None = typer.Option(None, "--workspace"),
 ) -> None:
     try:
@@ -169,28 +174,41 @@ def unmount(
 
 @env_app.command("set")
 def env_set(
-    assignment: str = typer.Argument(...),
+    env: list[str] = typer.Option(
+        ...,
+        "-e",
+        "--env",
+        help="Set KEY=VALUE; an empty value prompts without echo.",
+    ),
     name: str | None = typer.Option(None, "-n", "--name"),
 ) -> None:
     effective_name = effective_environment_name(name)
     try:
-        key = set_env_var(effective_name, assignment)
+        assignments = resolve_env_assignments(env)
+        keys = set_env_vars(effective_name, assignments)
     except AisboxError as exc:
         handle_error(exc)
-    typer.echo(f"Set {key}")
+    for key in keys:
+        typer.echo(f"Set {key}")
 
 
 @env_app.command("unset")
 def env_unset(
-    key: str = typer.Argument(...),
+    env: list[str] = typer.Option(
+        ...,
+        "-e",
+        "--env",
+        help="Unset an environment variable key; repeat for multiple keys.",
+    ),
     name: str | None = typer.Option(None, "-n", "--name"),
 ) -> None:
     effective_name = effective_environment_name(name)
     try:
-        unset_env_var(effective_name, key)
+        keys = unset_env_vars(effective_name, env)
     except AisboxError as exc:
         handle_error(exc)
-    typer.echo(f"Unset {key}")
+    for key in keys:
+        typer.echo(f"Unset {key}")
 
 
 @app.command("run", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

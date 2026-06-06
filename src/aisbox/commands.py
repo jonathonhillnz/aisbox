@@ -113,19 +113,6 @@ def remove_mount(name: str, alias: str, store: EnvironmentStore | None = None) -
     store.save(env)
 
 
-def set_env_var(
-    name: str,
-    assignment: str,
-    store: EnvironmentStore | None = None,
-) -> str:
-    store = store or EnvironmentStore()
-    env = store.load(name)
-    key, value = parse_env_assignment(assignment)
-    env.env[key] = value
-    store.save(env)
-    return key
-
-
 def set_env_vars(
     name: str,
     assignments: list[str],
@@ -138,15 +125,6 @@ def set_env_vars(
         env.env[key] = value
     store.save(env)
     return [key for key, _ in parsed]
-
-
-def unset_env_var(name: str, key: str, store: EnvironmentStore | None = None) -> None:
-    store = store or EnvironmentStore()
-    env = store.load(name)
-    if key not in env.env:
-        raise AisboxError(f"Environment variable is not set: {key}")
-    del env.env[key]
-    store.save(env)
 
 
 def unset_env_vars(

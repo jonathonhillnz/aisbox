@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 
+import pytest
 from typer.testing import CliRunner
 
 from aisbox.cli import app
@@ -16,6 +17,24 @@ def test_cli_version():
 
     assert result.exit_code == 0
     assert "aisbox" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("args", "help_text"),
+    [
+        (["create", "--help"], "empty value prompts without echo"),
+        (["env", "set", "--help"], "empty value prompts without echo"),
+        (["env", "unset", "--help"], "repeat for multiple keys"),
+    ],
+)
+def test_environment_options_have_help(args, help_text):
+    result = runner.invoke(app, args, terminal_width=120)
+    normalized = " ".join(result.stdout.replace("│", " ").split())
+
+    assert result.exit_code == 0
+    assert "-e" in normalized
+    assert "--env" in normalized
+    assert help_text in normalized
 
 
 def test_list_empty_environment_home(tmp_path, monkeypatch):
