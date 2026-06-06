@@ -38,6 +38,14 @@ def assert_valid_issue_form(form: dict[str, Any]) -> None:
     assert isinstance(form.get("name"), str) and form["name"].strip()
     assert isinstance(form.get("description"), str) and form["description"].strip()
     assert isinstance(form.get("body"), list) and form["body"]
+    if "title" in form:
+        assert isinstance(form["title"], str)
+    for key in ["labels", "assignees"]:
+        if key in form:
+            values = form[key]
+            assert isinstance(values, list)
+            assert all(isinstance(value, str) and value.strip() for value in values)
+            assert len(values) == len(set(values))
 
     attribute_keys = {
         "markdown": {"value"},
@@ -47,6 +55,7 @@ def assert_valid_issue_form(form: dict[str, Any]) -> None:
         "checkboxes": {"label", "description", "options"},
     }
     field_ids: set[str] = set()
+    field_labels: set[str] = set()
 
     for item in form["body"]:
         assert isinstance(item, dict)
@@ -80,6 +89,9 @@ def assert_valid_issue_form(form: dict[str, Any]) -> None:
 
         assert isinstance(attributes.get("label"), str)
         assert attributes["label"].strip()
+        normalized_label = attributes["label"].strip().casefold()
+        assert normalized_label not in field_labels
+        field_labels.add(normalized_label)
         for key in {"description", "placeholder", "value", "render"} & attributes.keys():
             assert isinstance(attributes[key], str)
 
@@ -89,16 +101,79 @@ def assert_valid_issue_form(form: dict[str, Any]) -> None:
             options = attributes.get("options")
             assert isinstance(options, list) and options
             assert all(isinstance(option, str) and option.strip() for option in options)
+            normalized_options = [option.strip().casefold() for option in options]
+            assert len(normalized_options) == len(set(normalized_options))
 
         if item_type == "checkboxes":
             options = attributes.get("options")
-            assert isinstance(options, list)
+            assert isinstance(options, list) and options
+            option_labels: set[str] = set()
             for option in options:
                 assert isinstance(option, dict)
                 assert option.keys() <= {"label", "required"}
                 assert isinstance(option.get("label"), str) and option["label"].strip()
+                normalized_option_label = option["label"].strip().casefold()
+                assert normalized_option_label not in option_labels
+                option_labels.add(normalized_option_label)
                 if "required" in option:
                     assert isinstance(option["required"], bool)
+
+
+def valid_issue_form() -> dict[str, Any]:
+    return {
+        "name": "Test form",
+        "description": "Test issue form",
+        "title": "[Test]: ",
+        "labels": ["triage"],
+        "assignees": ["maintainer"],
+        "body": [
+            {
+                "type": "textarea",
+                "id": "summary",
+                "attributes": {"label": "Summary"},
+            },
+            {
+                "type": "checkboxes",
+                "id": "confirmation",
+                "attributes": {
+                    "label": "Confirmation",
+                    "options": [{"label": "I confirm"}],
+                },
+            },
+        ],
+    }
+
+
+def test_issue_form_schema_rejects_non_string_title():
+    form = valid_issue_form()
+    form["title"] = 42
+
+    with pytest.raises(AssertionError):
+        assert_valid_issue_form(form)
+
+
+def test_issue_form_schema_rejects_duplicate_field_labels():
+    form = valid_issue_form()
+    form["body"][1]["attributes"]["label"] = " summary "
+
+    with pytest.raises(AssertionError):
+        assert_valid_issue_form(form)
+
+
+def test_issue_form_schema_rejects_empty_checkbox_options():
+    form = valid_issue_form()
+    form["body"][1]["attributes"]["options"] = []
+
+    with pytest.raises(AssertionError):
+        assert_valid_issue_form(form)
+
+
+def test_issue_form_schema_rejects_duplicate_checkbox_option_labels():
+    form = valid_issue_form()
+    form["body"][1]["attributes"]["options"].append({"label": " i CONFIRM "})
+
+    with pytest.raises(AssertionError):
+        assert_valid_issue_form(form)
 
 
 def test_public_preview_files_exist():
