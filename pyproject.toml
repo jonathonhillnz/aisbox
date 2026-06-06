@@ -7,6 +7,7 @@ name = "aisbox"
 version = "0.1.0"
 description = "Run AI coding agents inside isolated Docker environments"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
   "typer>=0.12,<1.0",
@@ -15,6 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8,<9",
+  "pyyaml>=6,<7",
 ]
 
 [project.scripts]
