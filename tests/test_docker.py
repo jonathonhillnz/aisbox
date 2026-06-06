@@ -14,10 +14,22 @@ def test_build_image_invokes_docker_build_with_stdin():
 
     runner.assert_called_once()
     args, kwargs = runner.call_args
-    assert args[0] == ["docker", "build", "-t", "aisbox/claude:latest", "-"]
+    assert args[0][:4] == ["docker", "build", "-t", "aisbox/claude:latest"]
+    assert "--build-arg" in args[0]
+    assert any(item.startswith("AISBOX_UID=") for item in args[0])
+    assert any(item.startswith("AISBOX_GID=") for item in args[0])
+    assert args[0][-1] == "-"
     assert kwargs["input"] == agent.dockerfile
     assert kwargs["text"] is True
     assert kwargs["check"] is True
+
+
+def test_agent_dockerfile_creates_aisbox_user_with_build_time_uid_and_gid():
+    dockerfile = get_agent("claude").dockerfile
+
+    assert "ARG AISBOX_UID=1000" in dockerfile
+    assert "ARG AISBOX_GID=1000" in dockerfile
+    assert 'useradd -m -o -u "$AISBOX_UID" -g "$AISBOX_GID"' in dockerfile
 
 
 def test_docker_available_returns_false_when_command_fails():

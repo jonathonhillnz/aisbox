@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable
 
@@ -15,7 +16,17 @@ def default_runner(command: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 def build_image(agent: AgentDefinition, runner: Runner = default_runner) -> None:
     runner(
-        ["docker", "build", "-t", agent.image, "-"],
+        [
+            "docker",
+            "build",
+            "-t",
+            agent.image,
+            "--build-arg",
+            f"AISBOX_UID={os.getuid()}",
+            "--build-arg",
+            f"AISBOX_GID={os.getgid()}",
+            "-",
+        ],
         input=agent.dockerfile,
         text=True,
         check=True,

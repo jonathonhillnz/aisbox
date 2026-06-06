@@ -10,7 +10,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        bash ca-certificates curl git nodejs npm \
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -m -s /bin/bash aisbox
+ARG AISBOX_UID=1000
+ARG AISBOX_GID=1000
+RUN if ! getent group "$AISBOX_GID" >/dev/null; then groupadd -g "$AISBOX_GID" aisbox; fi \
+    && useradd -m -o -u "$AISBOX_UID" -g "$AISBOX_GID" -s /bin/bash aisbox
 """
 
 
