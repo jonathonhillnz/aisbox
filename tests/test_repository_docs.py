@@ -498,6 +498,28 @@ def test_readme_documents_preview_security_boundaries():
     assert "after the container exits" in normalized
 
 
+def test_readme_documents_interactive_environment_values():
+    readme = read_text("README.md")
+    normalized = " ".join(readme.lower().split())
+
+    for text in [
+        "aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=",
+        "aisbox env set -n demo1 -e OPENAI_API_KEY=",
+        "aisbox env unset -n demo1 -e OPENAI_API_KEY",
+        "hidden prompt",
+        "press enter",
+        "stored unencrypted",
+    ]:
+        assert text.lower() in normalized
+
+    assert "prompted values" in normalized
+    assert "shell history" in normalized
+    assert "command-line process inspection" in normalized
+    assert "explicit non-empty" in normalized
+    assert "aisbox env set -n demo1 KEY=VALUE" not in readme
+    assert "aisbox env unset -n demo1 KEY" not in readme
+
+
 def test_readme_documents_platform_scope_and_managed_state_permissions():
     normalized = " ".join(read_text("README.md").lower().split())
 

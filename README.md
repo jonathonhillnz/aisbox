@@ -93,21 +93,33 @@ Agent images are built locally during `aisbox create` and `aisbox rebuild`.
 ## Authentication
 
 Use `aisbox attach -n demo1` to authenticate interactively inside the
-environment, or provide API tokens explicitly:
+environment, or use an empty assignment to enter an API token at a hidden
+prompt:
 
 ```bash
-aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
-aisbox env set -n demo1 OPENAI_API_KEY=value
+aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=
+aisbox env set -n demo1 -e OPENAI_API_KEY=
 ```
 
-Values provided through `-e` or `aisbox env set` are stored unencrypted in the
-environment's `environment.json`, and Docker receives them as environment
-settings. Command-line assignment values may remain in shell history and,
-depending on the host, may be observable to local processes or users. `aisbox`
-creates managed state directories with mode `0700` and managed state files with
-mode `0600`, but credentials remain stored unencrypted. Protect `AISBOX_HOME`,
-do not share tokens in logs or reports, and prefer interactive authentication
-when suitable. `aisbox inspect` masks stored values.
+An assignment ending in `=`, such as `OPENAI_API_KEY=`, opens one hidden prompt.
+Press Enter at that prompt to store an empty value. Prompted values stay out of
+shell history and normal command-line process inspection. Explicit non-empty
+values remain supported and options can be repeated:
+
+```bash
+aisbox env set -n demo1 -e LOG_LEVEL=debug -e FEATURE_FLAG=enabled
+aisbox env unset -n demo1 -e LOG_LEVEL -e FEATURE_FLAG
+```
+
+All values provided through `-e` or `aisbox env set` are stored unencrypted in
+the environment's `environment.json`, and Docker receives them as environment
+settings. Explicit non-empty command-line assignment values may remain in shell
+history and, depending on the host, may be observable to local processes or
+users. `aisbox` creates managed state directories with mode `0700` and managed
+state files with mode `0600`, but credentials remain stored unencrypted.
+Protect `AISBOX_HOME`, do not share tokens in logs or reports, and prefer
+interactive authentication when suitable. `aisbox inspect` masks stored
+values.
 
 ## Workspaces And Persistence
 
@@ -137,8 +149,8 @@ aisbox list
 aisbox inspect -n demo1
 aisbox mount -n demo1 /path/to/dir dir
 aisbox unmount -n demo1 dir
-aisbox env set -n demo1 KEY=VALUE
-aisbox env unset -n demo1 KEY
+aisbox env set -n demo1 -e OPENAI_API_KEY=
+aisbox env unset -n demo1 -e OPENAI_API_KEY
 aisbox run -n demo1 -- "summarize this repository"
 aisbox attach -n demo1
 aisbox shell -n demo1
