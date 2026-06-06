@@ -21,7 +21,8 @@ def load_yaml(path: str) -> dict[str, Any]:
 
 
 def test_public_preview_files_exist():
-    assert (ROOT / "LICENSE").is_file()
+    for path in ["LICENSE", "CONTRIBUTING.md", "SECURITY.md"]:
+        assert (ROOT / path).is_file()
 
 
 def test_package_and_repository_use_apache_2_license():
@@ -33,6 +34,33 @@ def test_package_and_repository_use_apache_2_license():
     assert "Apache License" in license_text
     assert "Version 2.0, January 2004" in license_text
     assert "http://www.apache.org/licenses/" in license_text
+
+
+def test_contributing_policy_covers_preview_workflow():
+    contributing = read_text("CONTRIBUTING.md")
+
+    for text in [
+        "public preview",
+        "existing issues",
+        "substantial",
+        "Python 3.11",
+        "pytest",
+        "Docker",
+        "credentials",
+    ]:
+        assert text in contributing
+
+
+def test_security_policy_requires_private_reporting():
+    security = read_text("SECURITY.md")
+
+    for text in [
+        "Private vulnerability reporting",
+        "Do not open a public issue",
+        "default branch",
+        "best-effort",
+    ]:
+        assert text in security
 
 
 def test_load_yaml_rejects_non_mapping_documents(tmp_path, monkeypatch):
