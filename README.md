@@ -14,20 +14,26 @@ with explicit persistence for workspaces and agent configuration.
 environments, but Docker is not a complete security boundary. Review every
 workspace and additional directory you mount.
 
-- Environment state is stored under `~/.aisbox/<name>` by default. Set
-  `AISBOX_HOME` to relocate it.
+- The configured state root (`<state-root>`) is `~/.aisbox` by default and is
+  overridden by `AISBOX_HOME`.
 - Host `~/.claude` and `~/.codex` directories are not copied or mounted.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
 - Runtime containers are disposable. Persistence comes from explicit bind
   mounts and stored environment configuration.
-- Environment variable values are stored in the environment configuration.
-  Treat the state directory as sensitive.
+- Containers use Docker's default outbound network access. Agents can send
+  mounted or supplied data over the network, so mount only trusted, necessary
+  data.
+- Environment variable values are stored unencrypted in
+  `<state-root>/<name>/environment.json`. Protect the state root and its
+  permissions as sensitive data.
 
 ## Requirements
 
 - Python 3.11 or newer
 - Docker Engine available to the current user without `sudo`
 - `pipx` for the recommended CLI installation
+- Network access for Docker image builds, which install Ubuntu packages and npm
+  agent CLIs
 
 Check Docker access with:
 
@@ -88,13 +94,17 @@ aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=value
 aisbox env set -n demo1 OPENAI_API_KEY=value
 ```
 
-Do not include real tokens in issues, logs, screenshots, or shell history
-shared with others. `aisbox inspect` displays environment variable names but
-masks their values.
+Values provided through `-e` or `aisbox env set` are stored unencrypted in the
+environment's `environment.json`, and Docker receives them as environment
+settings. Command-line assignment values may remain in shell history and,
+depending on the host, may be observable to local processes or users. Protect
+`AISBOX_HOME` and state permissions, do not share tokens in logs or reports,
+and prefer interactive authentication when suitable. `aisbox inspect` masks
+stored values.
 
 ## Workspaces And Persistence
 
-Without `--workspace`, the workspace is `~/.aisbox/<name>/files`. A supplied
+Without `--workspace`, the workspace is `<state-root>/<name>/files`. A supplied
 workspace is mounted at `/workspace`.
 
 Add and remove extra directory mounts by alias:
@@ -104,11 +114,13 @@ aisbox mount -n demo1 /path/to/dir dir
 aisbox unmount -n demo1 dir
 ```
 
-Additional mounts appear at `/workspace/<alias>`. Mounts are writable and
-expose the selected host directory to the agent.
+The workspace and additional mounts are writable. Additional mounts appear at
+`/workspace/<alias>` and expose the selected host directory to the agent. With
+Docker's default outbound network access, agents can send mounted or supplied
+data over the network; mount only trusted, necessary data.
 
-Agent configuration persists under `~/.aisbox/<name>/config`. Runtime
-containers use `docker run --rm` and are removed when the command exits.
+Agent configuration persists under `<state-root>/<name>/config`. Runtime
+containers use `docker run --rm` and are removed after the container exits.
 
 ## Commands
 
@@ -116,7 +128,6 @@ containers use `docker run --rm` and are removed when the command exits.
 aisbox create -n demo1 -a claude
 aisbox list
 aisbox inspect -n demo1
-aisbox delete -n demo1 --force
 aisbox mount -n demo1 /path/to/dir dir
 aisbox unmount -n demo1 dir
 aisbox env set -n demo1 KEY=VALUE
@@ -127,6 +138,7 @@ aisbox shell -n demo1
 aisbox rebuild -n demo1
 aisbox set default -n demo1
 aisbox doctor
+aisbox delete -n demo1 --force
 ```
 
 Run `aisbox --help` or `aisbox <command> --help` for current option details.

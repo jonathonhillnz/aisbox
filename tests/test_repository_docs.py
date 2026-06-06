@@ -86,3 +86,43 @@ def test_readme_documents_all_cli_commands():
         "aisbox doctor",
     ]:
         assert command in readme
+
+
+def test_readme_documents_preview_security_boundaries():
+    readme = read_text("README.md")
+    normalized = readme.lower()
+
+    for text in [
+        "environment.json",
+        "unencrypted",
+        "shell history",
+        "outbound network",
+        "<state-root>/<name>/files",
+        "<state-root>/<name>/config",
+        "interactive authentication",
+    ]:
+        assert text in normalized
+
+    assert "docker receives" in normalized
+    assert "local processes" in normalized or "local users" in normalized
+    assert "after the container exits" in normalized
+
+
+def test_readme_places_delete_after_environment_operations():
+    readme = read_text("README.md")
+    commands = readme.split("## Commands", 1)[1].split("## Known Preview Limitations", 1)[0]
+    delete_position = commands.index("aisbox delete -n demo1")
+
+    for command in [
+        "aisbox inspect -n demo1",
+        "aisbox mount -n demo1",
+        "aisbox unmount -n demo1",
+        "aisbox env set -n demo1",
+        "aisbox env unset -n demo1",
+        "aisbox run -n demo1",
+        "aisbox attach -n demo1",
+        "aisbox shell -n demo1",
+        "aisbox rebuild -n demo1",
+        "aisbox set default -n demo1",
+    ]:
+        assert commands.index(command) < delete_position
