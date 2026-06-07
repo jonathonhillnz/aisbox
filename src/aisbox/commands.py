@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import fcntl
 import json
+import os
+import stat
 import subprocess
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,24 +83,27 @@ def inspect_environment(name: str, store: EnvironmentStore | None = None) -> Env
 
 def delete_environment(name: str, store: EnvironmentStore | None = None) -> None:
     store = store or EnvironmentStore()
-    env = store.load(name)
-    try:
-        container = _inspect_retained(env)
-    except FileNotFoundError as exc:
-        raise AisboxError("Docker is not installed or not available on PATH") from exc
-    except (
-        subprocess.CalledProcessError,
-        json.JSONDecodeError,
-        KeyError,
-        TypeError,
-    ) as exc:
-        raise _docker_failure("container inspection", env.name) from exc
-    if container is not None:
-        raise AisboxError(
-            f"Environment {name} has a retained session; "
-            f"run 'aisbox kill -n {name}' first"
-        )
-    store.delete(name)
+    with _lifecycle_lock(name, store) as validated_name:
+        env = store.load(validated_name)
+        try:
+            container = _inspect_retained(env)
+        except FileNotFoundError as exc:
+            raise AisboxError(
+                "Docker is not installed or not available on PATH"
+            ) from exc
+        except (
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+        ) as exc:
+            raise _docker_failure("container inspection", env.name) from exc
+        if container is not None:
+            raise AisboxError(
+                f"Environment {validated_name} has a retained session; "
+                f"run 'aisbox kill -n {validated_name}' first"
+            )
+        store.delete(validated_name)
 
 
 def set_default_environment(name: str, store: EnvironmentStore | None = None) -> str:
@@ -205,6 +213,81 @@ def _docker_failure(action: str, environment: str | None = None) -> AisboxError:
     return AisboxError(f"Docker {action} failed{suffix}")
 
 
+@contextmanager
+def _lifecycle_lock(
+    name: str,
+    store: EnvironmentStore,
+) -> Iterator[str]:
+    name = validate_env_name(name)
+    lock_dir = store.root / ".locks"
+    directory_fd: int | None = None
+    lock_fd: int | None = None
+    acquired = False
+    try:
+        try:
+            store.ensure_root()
+            previous_umask = os.umask(0)
+            try:
+                try:
+                    lock_dir.mkdir(mode=0o700)
+                except FileExistsError:
+                    pass
+            finally:
+                os.umask(previous_umask)
+
+            directory_fd = os.open(
+                lock_dir,
+                os.O_RDONLY
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+            if not stat.S_ISDIR(os.fstat(directory_fd).st_mode):
+                raise OSError("Lifecycle lock path is not a directory")
+            os.fchmod(directory_fd, 0o700)
+
+            lock_fd = os.open(
+                f"{name}.lock",
+                os.O_RDWR
+                | os.O_CREAT
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_NONBLOCK", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
+            if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
+                raise OSError("Lifecycle lock path is not a regular file")
+            os.fchmod(lock_fd, 0o600)
+        except (AisboxError, OSError) as exc:
+            raise AisboxError(
+                f"Lifecycle lock could not be acquired for environment: {name}"
+            ) from exc
+
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except BlockingIOError as exc:
+            raise AisboxError(
+                f"Another lifecycle operation is active for environment: {name}"
+            ) from exc
+        except OSError as exc:
+            raise AisboxError(
+                f"Lifecycle lock could not be acquired for environment: {name}"
+            ) from exc
+
+        yield name
+    finally:
+        if lock_fd is not None:
+            if acquired:
+                try:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                except OSError:
+                    pass
+            os.close(lock_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
 def _owned_retained_container(
     env: Environment,
     container: DockerContainer | None,
@@ -253,25 +336,28 @@ def _ensure_retained_session(
     store: EnvironmentStore | None = None,
 ) -> None:
     store = store or EnvironmentStore()
-    env = store.load(name)
-    try:
-        container = _inspect_retained(env)
-        if container is None:
-            _run_retained(env, store)
-        elif container.status == "running":
-            attach_container(container.container_id)
-        else:
-            remove_container(container.container_id)
-            _run_retained(env, store)
-    except FileNotFoundError as exc:
-        raise AisboxError("Docker is not installed or not available on PATH") from exc
-    except (
-        subprocess.CalledProcessError,
-        json.JSONDecodeError,
-        KeyError,
-        TypeError,
-    ) as exc:
-        raise _docker_failure("retained session operation", env.name) from exc
+    with _lifecycle_lock(name, store) as validated_name:
+        env = store.load(validated_name)
+        try:
+            container = _inspect_retained(env)
+            if container is None:
+                _run_retained(env, store)
+            elif container.status == "running":
+                attach_container(container.container_id)
+            else:
+                remove_container(container.container_id)
+                _run_retained(env, store)
+        except FileNotFoundError as exc:
+            raise AisboxError(
+                "Docker is not installed or not available on PATH"
+            ) from exc
+        except (
+            subprocess.CalledProcessError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+        ) as exc:
+            raise _docker_failure("retained session operation", env.name) from exc
 
 
 def start_environment(

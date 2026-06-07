@@ -1,10 +1,13 @@
 import json
+import os
+import stat
 import subprocess
 from unittest.mock import Mock
 
 import pytest
 from typer.testing import CliRunner
 
+from aisbox import commands as commands_module
 from aisbox.cli import app
 from aisbox.commands import (
     attach_environment,
@@ -48,6 +51,128 @@ def managed_container(
             "dev.aisbox.agent": agent,
         },
     )
+
+
+def test_lifecycle_lock_creates_private_paths(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+
+    with commands_module._lifecycle_lock("demo1", store):
+        lock_dir = store.root / ".locks"
+        lock_file = lock_dir / "demo1.lock"
+
+        assert stat.S_IMODE(store.root.stat().st_mode) == 0o700
+        assert stat.S_IMODE(lock_dir.stat().st_mode) == 0o700
+        assert stat.S_IMODE(lock_file.stat().st_mode) == 0o600
+
+
+def test_lifecycle_lock_releases_after_context_error(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+
+    with pytest.raises(RuntimeError, match="operation failed"):
+        with commands_module._lifecycle_lock("demo1", store):
+            raise RuntimeError("operation failed")
+
+    with commands_module._lifecycle_lock("demo1", store):
+        pass
+
+
+@pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="requires O_NOFOLLOW")
+def test_lifecycle_lock_rejects_symlinked_lock_file(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+    lock_dir = store.root / ".locks"
+    lock_dir.mkdir(mode=0o700)
+    external_file = tmp_path / "external.lock"
+    external_file.write_text("unchanged", encoding="utf-8")
+    (lock_dir / "demo1.lock").symlink_to(external_file)
+    inspect_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.inspect_container", inspect_mock)
+
+    with pytest.raises(
+        AisboxError,
+        match="Lifecycle lock could not be acquired for environment: demo1",
+    ):
+        attach_environment("demo1", store=store)
+
+    inspect_mock.assert_not_called()
+    assert external_file.read_text(encoding="utf-8") == "unchanged"
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda store: start_environment("demo1", keep=True, store=store),
+        lambda store: attach_environment("demo1", store=store),
+    ],
+    ids=["start", "attach"],
+)
+def test_held_lifecycle_lock_blocks_retained_ensure_before_docker(
+    tmp_path, monkeypatch, operation
+):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+    load_mock = Mock(wraps=store.load)
+    inspect_mock = Mock()
+    run_mock = Mock()
+    attach_mock = Mock()
+    monkeypatch.setattr(store, "load", load_mock)
+    monkeypatch.setattr("aisbox.commands.inspect_container", inspect_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+    monkeypatch.setattr("aisbox.commands.attach_container", attach_mock)
+
+    with commands_module._lifecycle_lock("demo1", store):
+        with pytest.raises(
+            AisboxError,
+            match="Another lifecycle operation is active for environment: demo1",
+        ):
+            operation(store)
+
+    load_mock.assert_not_called()
+    inspect_mock.assert_not_called()
+    run_mock.assert_not_called()
+    attach_mock.assert_not_called()
+
+
+def test_held_lifecycle_lock_blocks_delete_before_state_or_docker(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+    load_mock = Mock(wraps=store.load)
+    delete_mock = Mock(wraps=store.delete)
+    inspect_mock = Mock()
+    monkeypatch.setattr(store, "load", load_mock)
+    monkeypatch.setattr(store, "delete", delete_mock)
+    monkeypatch.setattr("aisbox.commands.inspect_container", inspect_mock)
+
+    with commands_module._lifecycle_lock("demo1", store):
+        with pytest.raises(
+            AisboxError,
+            match="Another lifecycle operation is active for environment: demo1",
+        ):
+            delete_environment("demo1", store=store)
+
+    load_mock.assert_not_called()
+    delete_mock.assert_not_called()
+    inspect_mock.assert_not_called()
+
+
+def test_kill_remains_callable_while_lifecycle_lock_is_held(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+    monkeypatch.setattr(
+        "aisbox.commands.inspect_container",
+        lambda name: managed_container(),
+    )
+    remove_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.remove_container", remove_mock)
+
+    with commands_module._lifecycle_lock("demo1", store):
+        kill_session("demo1", store=store)
+
+    remove_mock.assert_called_once_with("sha256:demo1")
 
 
 def test_start_environment_without_keep_runs_disposable_start(tmp_path, monkeypatch):
