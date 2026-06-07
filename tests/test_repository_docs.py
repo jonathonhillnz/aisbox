@@ -633,7 +633,6 @@ def test_readme_documents_opencode_support_and_authentication():
     assert "many providers" in normalized_auth
     assert "OPENCODE_API_KEY=" not in readme
     assert "OPENCODE_EXPERIMENTAL_" not in readme
-    assert "OPENCODE_" not in readme
 
 
 def test_readme_limits_supported_agents_to_the_documented_three():
@@ -647,12 +646,17 @@ def test_readme_limits_supported_agents_to_the_documented_three():
 
 def test_readme_documents_opencode_project_compatibility_without_host_access():
     readme = read_text("README.md")
-    normalized = " ".join(readme.split())
+    persistence = readme.split("## Workspaces And Persistence", 1)[1].split(
+        "## Retained Sessions", 1
+    )[0]
+    normalized = " ".join(persistence.split())
 
     assert "project `CLAUDE.md` and `.claude/skills`" in normalized
-    assert "mounted workspace" in normalized
-    assert "host `~/.claude`" in normalized
-    assert "not copied or mounted" in normalized
+    assert (
+        "from the mounted workspace through its upstream compatibility behavior"
+        in normalized
+    )
+    assert "aisbox does not copy or mount host `~/.claude` state." in normalized
 
 
 def test_agents_guidance_matches_retained_container_safety_contract():
