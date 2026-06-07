@@ -29,3 +29,18 @@ class AgentDefinition:
     run_command: list[str]
     attach_command: list[str]
     shell_command: list[str] = field(default_factory=lambda: ["/bin/bash"])
+
+
+@dataclass(frozen=True)
+class DockerContainer:
+    name: str
+    status: str
+    labels: dict[str, str]
+
+
+@dataclass(frozen=True)
+class RetainedSession:
+    environment: str
+    agent: str
+    container: str
+    status: str

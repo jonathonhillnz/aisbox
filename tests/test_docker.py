@@ -3,7 +3,29 @@ from unittest.mock import Mock
 
 from aisbox.agents import get_agent
 from aisbox.docker import build_image, container_command, docker_available
-from aisbox.models import Environment, Mount
+from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
+
+
+def test_docker_and_retained_session_records_expose_lifecycle_fields():
+    container = DockerContainer(
+        name="aisbox-demo1",
+        status="running",
+        labels={
+            "dev.aisbox.managed": "true",
+            "dev.aisbox.environment": "demo1",
+            "dev.aisbox.agent": "claude",
+        },
+    )
+    session = RetainedSession(
+        environment="demo1",
+        agent="claude",
+        container="aisbox-demo1",
+        status="running",
+    )
+
+    assert container.name == session.container
+    assert container.labels["dev.aisbox.environment"] == session.environment
+    assert session.status == "running"
 
 
 def test_build_image_invokes_docker_build_with_stdin():
