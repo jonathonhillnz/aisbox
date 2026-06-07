@@ -52,6 +52,7 @@ def inspect_container(
 
     details = json.loads(result.stdout)
     return DockerContainer(
+        container_id=details["Id"],
         name=details["Name"].removeprefix("/"),
         status=details["State"]["Status"],
         labels=details["Config"]["Labels"] or {},
@@ -86,12 +87,12 @@ def list_retained_containers(
     return containers
 
 
-def attach_container(name: str, runner: Runner = default_runner) -> None:
-    runner(["docker", "attach", name], check=True)
+def attach_container(container_id: str, runner: Runner = default_runner) -> None:
+    runner(["docker", "attach", container_id], check=True)
 
 
-def remove_container(name: str, runner: Runner = default_runner) -> None:
-    runner(["docker", "rm", "--force", name], check=True)
+def remove_container(container_id: str, runner: Runner = default_runner) -> None:
+    runner(["docker", "rm", "--force", container_id], check=True)
 
 
 def build_image(agent: AgentDefinition, runner: Runner = default_runner) -> None:

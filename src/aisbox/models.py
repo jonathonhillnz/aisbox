@@ -33,6 +33,7 @@ class AgentDefinition:
 
 @dataclass(frozen=True)
 class DockerContainer:
+    container_id: str
     name: str
     status: str
     labels: dict[str, str]

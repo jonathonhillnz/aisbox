@@ -259,9 +259,9 @@ def _ensure_retained_session(
         if container is None:
             _run_retained(env, store)
         elif container.status == "running":
-            attach_container(container.name)
+            attach_container(container.container_id)
         else:
-            remove_container(container.name)
+            remove_container(container.container_id)
             _run_retained(env, store)
     except FileNotFoundError as exc:
         raise AisboxError("Docker is not installed or not available on PATH") from exc
@@ -297,38 +297,7 @@ def list_sessions(
 ) -> list[RetainedSession]:
     store = store or EnvironmentStore()
     try:
-        sessions = []
-        for container in list_retained_containers():
-            if container.status != "running":
-                continue
-            environment_name = container.labels.get(ENVIRONMENT_LABEL)
-            agent_name = container.labels.get(AGENT_LABEL)
-            if (
-                container.labels.get(MANAGED_LABEL) != "true"
-                or environment_name is None
-                or agent_name is None
-            ):
-                continue
-            try:
-                if not store.exists(environment_name):
-                    continue
-                env = store.load(environment_name)
-            except AisboxError:
-                continue
-            if (
-                env.agent != agent_name
-                or container.name != retained_container_name(env.name)
-            ):
-                continue
-            sessions.append(
-                RetainedSession(
-                    environment=env.name,
-                    agent=env.agent,
-                    container=container.name,
-                    status=container.status,
-                )
-            )
-        return sorted(sessions, key=lambda session: session.environment)
+        containers = list_retained_containers()
     except FileNotFoundError as exc:
         raise AisboxError("Docker is not installed or not available on PATH") from exc
     except (
@@ -338,6 +307,39 @@ def list_sessions(
         TypeError,
     ) as exc:
         raise _docker_failure("session listing") from exc
+
+    sessions = []
+    for container in containers:
+        if container.status != "running":
+            continue
+        environment_name = container.labels.get(ENVIRONMENT_LABEL)
+        agent_name = container.labels.get(AGENT_LABEL)
+        if (
+            container.labels.get(MANAGED_LABEL) != "true"
+            or environment_name is None
+            or agent_name is None
+        ):
+            continue
+        try:
+            if not store.exists(environment_name):
+                continue
+            env = store.load(environment_name)
+        except AisboxError:
+            continue
+        if (
+            env.agent != agent_name
+            or container.name != retained_container_name(env.name)
+        ):
+            continue
+        sessions.append(
+            RetainedSession(
+                environment=env.name,
+                agent=env.agent,
+                container=container.name,
+                status=container.status,
+            )
+        )
+    return sorted(sessions, key=lambda session: session.environment)
 
 
 def kill_session(
@@ -350,7 +352,7 @@ def kill_session(
         container = _inspect_retained(env)
         if container is None:
             raise AisboxError(f"No retained session exists for environment: {name}")
-        remove_container(container.name)
+        remove_container(container.container_id)
     except AisboxError:
         raise
     except FileNotFoundError as exc:

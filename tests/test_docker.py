@@ -21,6 +21,7 @@ from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
 
 def test_docker_and_retained_session_records_expose_lifecycle_fields():
     container = DockerContainer(
+        container_id="sha256:demo1",
         name="aisbox-demo1",
         status="running",
         labels={
@@ -37,6 +38,7 @@ def test_docker_and_retained_session_records_expose_lifecycle_fields():
     )
 
     assert container.name == session.container
+    assert container.container_id == "sha256:demo1"
     assert container.labels["dev.aisbox.environment"] == session.environment
     assert session.status == "running"
 
@@ -283,6 +285,7 @@ def test_inspect_container_parses_container_details():
             returncode=0,
             stdout=json.dumps(
                 {
+                    "Id": "sha256:demo1",
                     "Name": "/aisbox-demo1",
                     "State": {"Status": "running"},
                     "Config": {
@@ -301,6 +304,7 @@ def test_inspect_container_parses_container_details():
     result = docker_module.inspect_container("aisbox-demo1", runner=runner)
 
     assert result == DockerContainer(
+        container_id="sha256:demo1",
         name="aisbox-demo1",
         status="running",
         labels={
@@ -368,6 +372,7 @@ def test_list_retained_containers_inspects_candidates_and_skips_missing():
                 returncode=0,
                 stdout=json.dumps(
                     {
+                        "Id": "sha256:demo1",
                         "Name": "/aisbox-demo1",
                         "State": {"Status": "running"},
                         "Config": {
@@ -386,6 +391,7 @@ def test_list_retained_containers_inspects_candidates_and_skips_missing():
                 returncode=0,
                 stdout=json.dumps(
                     {
+                        "Id": "sha256:demo2",
                         "Name": "/aisbox-demo2",
                         "State": {"Status": "exited"},
                         "Config": {
@@ -411,6 +417,7 @@ def test_list_retained_containers_inspects_candidates_and_skips_missing():
 
     assert result == [
         DockerContainer(
+            container_id="sha256:demo1",
             name="aisbox-demo1",
             status="running",
             labels={
@@ -420,6 +427,7 @@ def test_list_retained_containers_inspects_candidates_and_skips_missing():
             },
         ),
         DockerContainer(
+            container_id="sha256:demo2",
             name="aisbox-demo2",
             status="exited",
             labels={
@@ -488,10 +496,10 @@ def test_list_retained_containers_inspects_candidates_and_skips_missing():
 def test_attach_container_invokes_exact_docker_command():
     runner = Mock()
 
-    docker_module.attach_container("aisbox-demo1", runner=runner)
+    docker_module.attach_container("sha256:demo1", runner=runner)
 
     runner.assert_called_once_with(
-        ["docker", "attach", "aisbox-demo1"],
+        ["docker", "attach", "sha256:demo1"],
         check=True,
     )
 
@@ -499,9 +507,9 @@ def test_attach_container_invokes_exact_docker_command():
 def test_remove_container_invokes_exact_docker_command():
     runner = Mock()
 
-    docker_module.remove_container("aisbox-demo1", runner=runner)
+    docker_module.remove_container("sha256:demo1", runner=runner)
 
     runner.assert_called_once_with(
-        ["docker", "rm", "--force", "aisbox-demo1"],
+        ["docker", "rm", "--force", "sha256:demo1"],
         check=True,
     )

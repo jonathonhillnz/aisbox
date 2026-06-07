@@ -1,3 +1,4 @@
+import json
 import subprocess
 from unittest.mock import Mock
 
@@ -14,6 +15,7 @@ from aisbox.commands import (
 )
 from aisbox.errors import AisboxError
 from aisbox.models import DockerContainer
+from aisbox.store import EnvironmentStore
 
 
 runner = CliRunner()
@@ -32,9 +34,11 @@ def managed_container(
     agent: str = "claude",
     status: str = "running",
     name: str | None = None,
+    container_id: str | None = None,
     labels: dict[str, str] | None = None,
 ) -> DockerContainer:
     return DockerContainer(
+        container_id=container_id or f"sha256:{environment}",
         name=name or f"aisbox-{environment}",
         status=status,
         labels=labels
@@ -80,7 +84,7 @@ def test_attach_joins_running_retained_session(tmp_path, monkeypatch):
 
     attach_environment("demo1")
 
-    attach_mock.assert_called_once_with("aisbox-demo1")
+    attach_mock.assert_called_once_with("sha256:demo1")
 
 
 def test_attach_replaces_stopped_retained_session(tmp_path, monkeypatch):
@@ -96,7 +100,7 @@ def test_attach_replaces_stopped_retained_session(tmp_path, monkeypatch):
 
     attach_environment("demo1")
 
-    remove_mock.assert_called_once_with("aisbox-demo1")
+    remove_mock.assert_called_once_with("sha256:demo1")
     assert run_mock.call_args.args[3] == "start"
     assert run_mock.call_args.kwargs == {"retained": True}
 
@@ -104,7 +108,12 @@ def test_attach_replaces_stopped_retained_session(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "container",
     [
-        DockerContainer(name="aisbox-demo1", status="running", labels={}),
+        DockerContainer(
+            container_id="sha256:unmanaged",
+            name="aisbox-demo1",
+            status="running",
+            labels={},
+        ),
         managed_container(name="not-aisbox-demo1"),
         managed_container(
             labels={
@@ -177,6 +186,24 @@ def test_list_sessions_returns_only_valid_running_sessions(tmp_path, monkeypatch
     ]
 
 
+def test_list_sessions_does_not_translate_store_json_failure_as_docker_failure(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    store = EnvironmentStore()
+    state_file = store.env_dir("demo1") / "environment.json"
+    state_file.write_text("{not valid json", encoding="utf-8")
+    monkeypatch.setattr(
+        "aisbox.commands.list_retained_containers",
+        lambda: [managed_container()],
+    )
+
+    with pytest.raises(json.JSONDecodeError) as exc_info:
+        list_sessions(store=store)
+
+    assert "Docker session listing failed" not in str(exc_info.value)
+
+
 @pytest.mark.parametrize("status", ["running", "exited"])
 def test_kill_removes_owned_running_or_stopped_container(
     tmp_path, monkeypatch, status
@@ -191,7 +218,7 @@ def test_kill_removes_owned_running_or_stopped_container(
 
     kill_session("demo1")
 
-    remove_mock.assert_called_once_with("aisbox-demo1")
+    remove_mock.assert_called_once_with("sha256:demo1")
 
 
 def test_kill_errors_when_retained_container_is_missing(tmp_path, monkeypatch):
