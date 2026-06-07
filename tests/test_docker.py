@@ -1,6 +1,8 @@
 import subprocess
 from unittest.mock import Mock
 
+import pytest
+
 from aisbox.agents import get_agent
 from aisbox.docker import (
     AGENT_LABEL,
@@ -152,6 +154,25 @@ def test_container_command_start_mode_is_disposable_interactive_and_appends_atta
     assert command[-len(agent.attach_command) :] == agent.attach_command
 
 
+def test_container_command_attach_alias_matches_disposable_start():
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    start_command = container_command(env, agent, "/tmp/config", "start")
+    attach_command = container_command(env, agent, "/tmp/config", "attach")
+
+    assert attach_command == start_command
+    assert "--rm" in attach_command
+
+
 def test_container_command_retained_start_has_deterministic_name_and_labels():
     agent = get_agent("claude")
     env = Environment(
@@ -188,6 +209,23 @@ def test_container_command_retained_start_has_deterministic_name_and_labels():
     assert command[-len(agent.attach_command) :] == agent.attach_command
 
 
+@pytest.mark.parametrize("mode", ["run", "shell", "attach"])
+def test_container_command_rejects_retained_non_start_modes(mode):
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    with pytest.raises(ValueError, match="Retained containers require start mode"):
+        container_command(env, agent, "/tmp/config", mode, retained=True)
+
+
 def test_container_command_shell_mode_is_interactive_and_appends_shell_command():
     agent = get_agent("claude")
     env = Environment(
@@ -207,7 +245,7 @@ def test_container_command_shell_mode_is_interactive_and_appends_shell_command()
     assert command[-len(agent.shell_command) :] == agent.shell_command
 
 
-def test_run_container_forwards_retained_to_container_command():
+def test_run_container_preserves_positional_runner_and_forwards_keyword_retained():
     runner = Mock()
     agent = get_agent("claude")
     env = Environment(
@@ -225,8 +263,9 @@ def test_run_container_forwards_retained_to_container_command():
         agent,
         "/tmp/config",
         "start",
+        None,
+        runner,
         retained=True,
-        runner=runner,
     )
 
     command = runner.call_args.args[0]

@@ -62,6 +62,12 @@ def container_command(
     prompt: str | None = None,
     retained: bool = False,
 ) -> list[str]:
+    if retained and mode != "start":
+        raise ValueError("Retained containers require start mode")
+    # Remove this alias when the CLI attach command is migrated to start.
+    if mode == "attach":
+        mode = "start"
+
     command = ["docker", "run"]
     if retained:
         command.extend(["--name", retained_container_name(env.name)])
@@ -99,8 +105,9 @@ def run_container(
     config_source: str,
     mode: str,
     prompt: str | None = None,
-    retained: bool = False,
     runner: Runner = default_runner,
+    *,
+    retained: bool = False,
 ) -> None:
     runner(
         container_command(
