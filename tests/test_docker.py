@@ -1,8 +1,10 @@
+import json
 import subprocess
 from unittest.mock import Mock
 
 import pytest
 
+from aisbox import docker as docker_module
 from aisbox.agents import get_agent
 from aisbox.docker import (
     AGENT_LABEL,
@@ -272,3 +274,165 @@ def test_run_container_preserves_positional_runner_and_forwards_keyword_retained
     assert "--rm" not in command
     assert command[command.index("--name") + 1] == "aisbox-demo1"
     runner.assert_called_once_with(command, check=True)
+
+
+def test_inspect_container_parses_container_details():
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "Name": "/aisbox-demo1",
+                    "State": {"Status": "running"},
+                    "Config": {
+                        "Labels": {
+                            MANAGED_LABEL: "true",
+                            ENVIRONMENT_LABEL: "demo1",
+                            AGENT_LABEL: "claude",
+                        }
+                    },
+                }
+            ),
+            stderr="",
+        )
+    )
+
+    result = docker_module.inspect_container("aisbox-demo1", runner=runner)
+
+    assert result == DockerContainer(
+        name="aisbox-demo1",
+        status="running",
+        labels={
+            MANAGED_LABEL: "true",
+            ENVIRONMENT_LABEL: "demo1",
+            AGENT_LABEL: "claude",
+        },
+    )
+    runner.assert_called_once_with(
+        [
+            "docker",
+            "container",
+            "inspect",
+            "--format",
+            "{{json .}}",
+            "aisbox-demo1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.mark.parametrize("message", ["No such container", "No such object"])
+def test_inspect_container_returns_none_when_container_is_missing(message):
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=["docker", "container", "inspect"],
+            returncode=1,
+            stdout="",
+            stderr=f"Error: {message}: aisbox-demo1",
+        )
+    )
+
+    assert docker_module.inspect_container("aisbox-demo1", runner=runner) is None
+
+
+def test_inspect_container_raises_for_other_failures():
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=["docker", "container", "inspect"],
+            returncode=1,
+            stdout="",
+            stderr="permission denied",
+        )
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        docker_module.inspect_container("aisbox-demo1", runner=runner)
+
+    assert exc_info.value.returncode == 1
+
+
+def test_list_retained_containers_parses_json_lines_including_exited():
+    rows = [
+        {
+            "Names": "aisbox-demo1",
+            "State": "running",
+            "Labels": (
+                f"{MANAGED_LABEL}=true,{ENVIRONMENT_LABEL}=demo1,"
+                f"{AGENT_LABEL}=claude"
+            ),
+        },
+        {
+            "Names": "aisbox-demo2",
+            "State": "exited",
+            "Labels": f"{MANAGED_LABEL}=true,{ENVIRONMENT_LABEL}=demo2",
+        },
+    ]
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="\n".join(json.dumps(row) for row in rows) + "\n\n",
+            stderr="",
+        )
+    )
+
+    result = docker_module.list_retained_containers(runner=runner)
+
+    assert result == [
+        DockerContainer(
+            name="aisbox-demo1",
+            status="running",
+            labels={
+                MANAGED_LABEL: "true",
+                ENVIRONMENT_LABEL: "demo1",
+                AGENT_LABEL: "claude",
+            },
+        ),
+        DockerContainer(
+            name="aisbox-demo2",
+            status="exited",
+            labels={
+                MANAGED_LABEL: "true",
+                ENVIRONMENT_LABEL: "demo2",
+            },
+        ),
+    ]
+    runner.assert_called_once_with(
+        [
+            "docker",
+            "ps",
+            "--all",
+            "--filter",
+            f"label={MANAGED_LABEL}=true",
+            "--format",
+            "{{json .}}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_attach_container_invokes_exact_docker_command():
+    runner = Mock()
+
+    docker_module.attach_container("aisbox-demo1", runner=runner)
+
+    runner.assert_called_once_with(
+        ["docker", "attach", "aisbox-demo1"],
+        check=True,
+    )
+
+
+def test_remove_container_invokes_exact_docker_command():
+    runner = Mock()
+
+    docker_module.remove_container("aisbox-demo1", runner=runner)
+
+    runner.assert_called_once_with(
+        ["docker", "rm", "--force", "aisbox-demo1"],
+        check=True,
+    )

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from collections.abc import Callable
 
-from aisbox.models import AgentDefinition, Environment
+from aisbox.models import AgentDefinition, DockerContainer, Environment
 
 
 Runner = Callable[..., subprocess.CompletedProcess]
@@ -20,6 +21,91 @@ def default_runner(command: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 def retained_container_name(environment_name: str) -> str:
     return f"aisbox-{environment_name}"
+
+
+def _parse_labels(value: str | None) -> dict[str, str]:
+    if not value:
+        return {}
+    return {
+        key: label_value
+        for label in value.split(",")
+        for key, _, label_value in [label.partition("=")]
+    }
+
+
+def inspect_container(
+    name: str,
+    runner: Runner = default_runner,
+) -> DockerContainer | None:
+    result = runner(
+        [
+            "docker",
+            "container",
+            "inspect",
+            "--format",
+            "{{json .}}",
+            name,
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        if "No such container" in result.stderr or "No such object" in result.stderr:
+            return None
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            result.args,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+
+    details = json.loads(result.stdout)
+    return DockerContainer(
+        name=details["Name"].removeprefix("/"),
+        status=details["State"]["Status"],
+        labels=details["Config"]["Labels"] or {},
+    )
+
+
+def list_retained_containers(
+    runner: Runner = default_runner,
+) -> list[DockerContainer]:
+    result = runner(
+        [
+            "docker",
+            "ps",
+            "--all",
+            "--filter",
+            f"label={MANAGED_LABEL}=true",
+            "--format",
+            "{{json .}}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    containers = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        details = json.loads(line)
+        containers.append(
+            DockerContainer(
+                name=details["Names"],
+                status=details["State"],
+                labels=_parse_labels(details["Labels"]),
+            )
+        )
+    return containers
+
+
+def attach_container(name: str, runner: Runner = default_runner) -> None:
+    runner(["docker", "attach", name], check=True)
+
+
+def remove_container(name: str, runner: Runner = default_runner) -> None:
+    runner(["docker", "rm", "--force", name], check=True)
 
 
 def build_image(agent: AgentDefinition, runner: Runner = default_runner) -> None:
