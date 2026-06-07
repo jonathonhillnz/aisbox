@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -7,9 +8,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aisbox.agents import get_agent, supported_agents
-from aisbox.docker import build_image, docker_available, run_container
+from aisbox.docker import (
+    AGENT_LABEL,
+    ENVIRONMENT_LABEL,
+    MANAGED_LABEL,
+    attach_container,
+    build_image,
+    docker_available,
+    inspect_container,
+    list_retained_containers,
+    remove_container,
+    retained_container_name,
+    run_container,
+)
 from aisbox.errors import AisboxError
-from aisbox.models import Environment, Mount
+from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
 from aisbox.store import EnvironmentStore
 from aisbox.validation import (
     parse_env_assignment,
@@ -64,7 +77,25 @@ def inspect_environment(name: str, store: EnvironmentStore | None = None) -> Env
 
 
 def delete_environment(name: str, store: EnvironmentStore | None = None) -> None:
-    (store or EnvironmentStore()).delete(name)
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    try:
+        container = _inspect_retained(env)
+    except FileNotFoundError as exc:
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
+    except (
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        raise _docker_failure("container inspection", env.name) from exc
+    if container is not None:
+        raise AisboxError(
+            f"Environment {name} has a retained session; "
+            f"run 'aisbox kill -n {name}' first"
+        )
+    store.delete(name)
 
 
 def set_default_environment(name: str, store: EnvironmentStore | None = None) -> str:
@@ -167,6 +198,170 @@ def run_environment(
         raise AisboxError("Docker is not installed or not available on PATH") from exc
     except subprocess.CalledProcessError as exc:
         raise AisboxError(f"Docker container failed for environment: {env.name}") from exc
+
+
+def _docker_failure(action: str, environment: str | None = None) -> AisboxError:
+    suffix = f" for environment: {environment}" if environment else ""
+    return AisboxError(f"Docker {action} failed{suffix}")
+
+
+def _owned_retained_container(
+    env: Environment,
+    container: DockerContainer | None,
+) -> DockerContainer | None:
+    if container is None:
+        return None
+    expected_labels = {
+        MANAGED_LABEL: "true",
+        ENVIRONMENT_LABEL: env.name,
+        AGENT_LABEL: env.agent,
+    }
+    if (
+        container.name != retained_container_name(env.name)
+        or any(
+            container.labels.get(key) != value
+            for key, value in expected_labels.items()
+        )
+    ):
+        raise AisboxError(
+            f"Container name {container.name} is not managed by aisbox "
+            f"for environment: {env.name}"
+        )
+    return container
+
+
+def _inspect_retained(env: Environment) -> DockerContainer | None:
+    return _owned_retained_container(
+        env,
+        inspect_container(retained_container_name(env.name)),
+    )
+
+
+def _run_retained(env: Environment, store: EnvironmentStore) -> None:
+    agent = get_agent(env.agent)
+    run_container(
+        env,
+        agent,
+        str(store.config_dir(env.name)),
+        "start",
+        retained=True,
+    )
+
+
+def _ensure_retained_session(
+    name: str,
+    store: EnvironmentStore | None = None,
+) -> None:
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    try:
+        container = _inspect_retained(env)
+        if container is None:
+            _run_retained(env, store)
+        elif container.status == "running":
+            attach_container(container.name)
+        else:
+            remove_container(container.name)
+            _run_retained(env, store)
+    except FileNotFoundError as exc:
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
+    except (
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        raise _docker_failure("retained session operation", env.name) from exc
+
+
+def start_environment(
+    name: str,
+    keep: bool,
+    store: EnvironmentStore | None = None,
+) -> None:
+    if keep:
+        _ensure_retained_session(name, store)
+        return
+    run_environment(name, "start", store=store)
+
+
+def attach_environment(
+    name: str,
+    store: EnvironmentStore | None = None,
+) -> None:
+    _ensure_retained_session(name, store)
+
+
+def list_sessions(
+    store: EnvironmentStore | None = None,
+) -> list[RetainedSession]:
+    store = store or EnvironmentStore()
+    try:
+        sessions = []
+        for container in list_retained_containers():
+            if container.status != "running":
+                continue
+            environment_name = container.labels.get(ENVIRONMENT_LABEL)
+            agent_name = container.labels.get(AGENT_LABEL)
+            if (
+                container.labels.get(MANAGED_LABEL) != "true"
+                or environment_name is None
+                or agent_name is None
+            ):
+                continue
+            try:
+                if not store.exists(environment_name):
+                    continue
+                env = store.load(environment_name)
+            except AisboxError:
+                continue
+            if (
+                env.agent != agent_name
+                or container.name != retained_container_name(env.name)
+            ):
+                continue
+            sessions.append(
+                RetainedSession(
+                    environment=env.name,
+                    agent=env.agent,
+                    container=container.name,
+                    status=container.status,
+                )
+            )
+        return sorted(sessions, key=lambda session: session.environment)
+    except FileNotFoundError as exc:
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
+    except (
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        raise _docker_failure("session listing") from exc
+
+
+def kill_session(
+    name: str,
+    store: EnvironmentStore | None = None,
+) -> None:
+    store = store or EnvironmentStore()
+    env = store.load(name)
+    try:
+        container = _inspect_retained(env)
+        if container is None:
+            raise AisboxError(f"No retained session exists for environment: {name}")
+        remove_container(container.name)
+    except AisboxError:
+        raise
+    except FileNotFoundError as exc:
+        raise AisboxError("Docker is not installed or not available on PATH") from exc
+    except (
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+    ) as exc:
+        raise _docker_failure("container removal", env.name) from exc
 
 
 def rebuild_environment(name: str, store: EnvironmentStore | None = None) -> None:

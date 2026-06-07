@@ -192,6 +192,7 @@ def test_list_reports_store_errors(monkeypatch):
 def test_delete_environment_with_force(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
     runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
 
     result = runner.invoke(app, ["delete", "-n", "demo1", "--force"])
@@ -227,6 +228,7 @@ def test_environment_command_without_name_and_without_default_errors_cleanly(
 def test_delete_default_environment_clears_cli_default(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
     monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
     runner.invoke(app, ["create", "-n", "demo1", "-a", "claude"])
     runner.invoke(app, ["set", "default", "-n", "demo1"])
 
