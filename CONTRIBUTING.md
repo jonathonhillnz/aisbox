@@ -64,7 +64,8 @@ steps, behavior, or safety guarantees.
 
 Preserve the safety contract:
 
-- Do not expose or mount host `~/.claude` or `~/.codex` configuration.
+- Do not copy or mount host `~/.claude`, `~/.codex`, or OpenCode user
+  configuration and credential directories.
 - Do not add unexpected or broader host mounts.
 - Do not print, persist, or commit secrets.
 - Do not add automatic `sudo` behavior for Docker.
