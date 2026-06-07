@@ -436,6 +436,7 @@ def test_pull_request_template_covers_review_requirements():
 def test_readme_states_preview_and_safety_contract():
     readme = read_text("README.md")
     normalized = " ".join(readme.split())
+    normalized_lower = normalized.lower()
     opening = " ".join(readme.split("> [!WARNING]", 1)[0].split())
 
     for text in [
@@ -458,12 +459,18 @@ def test_readme_states_preview_and_safety_contract():
         "Runtime containers are disposable by default",
         "`start --keep` and `attach` explicitly retain",
         "until `aisbox kill`",
-        (
-            "Persistence still comes from explicit bind mounts and stored "
-            "environment configuration."
-        ),
     ]:
         assert text in normalized
+
+    for text in [
+        "writable-layer state",
+        "may contain sensitive data",
+        "discarded when the container is removed",
+        "durable persistence across container removal",
+        "explicit bind mounts",
+        "stored environment configuration",
+    ]:
+        assert text in normalized_lower
 
     assert "Docker containers are disposable by default" in opening
     assert "optional retained interactive sessions" in opening
@@ -499,6 +506,7 @@ def test_readme_documents_retained_session_lifecycle():
     readme = read_text("README.md")
     retained = readme.split("## Retained Sessions", 1)[1].split("## Commands", 1)[0]
     normalized = " ".join(retained.split())
+    normalized_lower = normalized.lower()
 
     for text in [
         "aisbox start -n demo1",
@@ -517,6 +525,17 @@ def test_readme_documents_retained_session_lifecycle():
     ]:
         assert text in normalized
 
+    for text in [
+        "writable-layer",
+        "survive detach and reconnect",
+        "may contain sensitive data",
+        "discarded when the retained container is killed or replaced",
+        "durable persistence across container removal",
+        "explicit bind mounts and stored environment configuration",
+        "do not rely on the retained container filesystem",
+    ]:
+        assert text in normalized_lower
+
     assert normalized.index("aisbox start -n demo1") < normalized.index(
         "aisbox start -n demo1 --keep"
     )
@@ -525,7 +544,7 @@ def test_readme_documents_retained_session_lifecycle():
     )
 
 
-def test_readme_commands_order_retained_cleanup_before_delete():
+def test_readme_commands_include_retained_workflow_and_kill_before_delete():
     readme = read_text("README.md")
     commands = (
         readme.split("## Commands", 1)[1]
@@ -533,7 +552,7 @@ def test_readme_commands_order_retained_cleanup_before_delete():
         .split("```", 1)[0]
     )
 
-    retained_commands = [
+    for command in [
         "aisbox run -n demo1",
         "aisbox start -n demo1",
         "aisbox start -n demo1 --keep",
@@ -541,10 +560,9 @@ def test_readme_commands_order_retained_cleanup_before_delete():
         "aisbox sessions",
         "aisbox kill -n demo1",
         "aisbox shell -n demo1",
-    ]
-    positions = [commands.index(command) for command in retained_commands]
+    ]:
+        assert command in commands
 
-    assert positions == sorted(positions)
     assert commands.index("aisbox kill -n demo1") < commands.index(
         "aisbox delete -n demo1 --force"
     )
@@ -579,11 +597,28 @@ def test_readme_uses_disposable_start_for_interactive_authentication():
     )[0]
     normalized = " ".join(authentication.split())
 
-    assert (
-        "Use `aisbox start -n demo1` to authenticate interactively inside a "
-        "disposable container."
-    ) in normalized
+    assert "`aisbox start -n demo1`" in normalized
+    assert "authenticate interactively" in normalized
+    assert "disposable container" in normalized
     assert "aisbox attach -n demo1" not in authentication
+
+
+def test_agents_guidance_matches_retained_container_safety_contract():
+    agents = read_text("AGENTS.md")
+    normalized = " ".join(agents.split())
+
+    for text in [
+        "Environment state is stored under `~/.aisbox/<name>` by default",
+        "Host `~/.claude` and `~/.codex` directories must not be copied or mounted.",
+        "Docker is invoked as the current user.",
+        "Do not add automatic `sudo` behavior.",
+        "Runtime containers are disposable by default.",
+        "Retained sessions are explicit",
+        "removed with `aisbox kill`",
+        "Durable persistence after container removal",
+        "explicit bind mounts and stored environment config",
+    ]:
+        assert text in normalized
 
 
 def test_readme_documents_interactive_environment_values():

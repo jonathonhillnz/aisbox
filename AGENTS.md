@@ -14,8 +14,9 @@ Core safety contract:
   `AISBOX_HOME` when set.
 - Host `~/.claude` and `~/.codex` directories must not be copied or mounted.
 - Docker is invoked as the current user. Do not add automatic `sudo` behavior.
-- Runtime containers are disposable; persistence comes from explicit bind
-  mounts and stored environment config.
+- Runtime containers are disposable by default. Retained sessions are explicit
+  and removed with `aisbox kill`. Durable persistence after container removal
+  comes from explicit bind mounts and stored environment config.
 
 ## Repository Layout
 

@@ -22,8 +22,10 @@ workspace and additional directory you mount.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
 - Runtime containers are disposable by default. `start --keep` and `attach`
   explicitly retain one interactive container per environment until
-  `aisbox kill`. Persistence still comes from explicit bind mounts and stored
-  environment configuration.
+  `aisbox kill`. A retained container's writable-layer state may contain
+  sensitive data and is discarded when the container is removed. Durable
+  persistence across container removal comes only from explicit bind mounts
+  and stored environment configuration.
 - `aisbox` creates managed state directories with mode `0700` and managed
   state files with mode `0600`, and tightens those permissions on subsequent
   writes.
@@ -144,8 +146,9 @@ data over the network; mount only trusted, necessary data.
 
 Agent configuration persists under `<state-root>/<name>/config`. `aisbox run`,
 plain `aisbox start`, and `aisbox shell` use `docker run --rm`; their containers
-are removed after the container exits. Retained sessions are opt-in and do not
-make the container filesystem a persistence mechanism.
+are removed after the container exits. Retained sessions are opt-in. Their
+container filesystem can hold writable-layer state while the container exists,
+but it is not durable persistence across container removal.
 
 ## Retained Sessions
 
@@ -178,6 +181,13 @@ running container, creates it when it is missing, and replaces it when it is
 stopped. The container captures the environment's mounts, environment
 variables, and image when it is created. After configuration changes, run
 `aisbox kill -n demo1` and recreate the retained session to apply them.
+
+Retained container writable-layer filesystem changes survive detach and
+reconnect until the retained container is killed or replaced. This state may
+contain sensitive data and is discarded when the retained container is killed
+or replaced. Durable persistence across container removal comes only from
+explicit bind mounts and stored environment configuration; do not rely on the
+retained container filesystem for durable persistence.
 
 ## Commands
 
