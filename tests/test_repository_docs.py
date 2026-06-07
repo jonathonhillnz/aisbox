@@ -504,7 +504,7 @@ def test_readme_documents_retained_session_lifecycle():
         "aisbox start -n demo1",
         "aisbox start -n demo1 --keep",
         "Ctrl-p Ctrl-q",
-        "Ctrl-c may stop",
+        "`Ctrl-c` may stop the agent and retained session instead.",
         "aisbox attach -n demo1",
         "aisbox sessions",
         "aisbox kill -n demo1",
@@ -577,8 +577,12 @@ def test_readme_uses_disposable_start_for_interactive_authentication():
     authentication = readme.split("## Authentication", 1)[1].split(
         "## Workspaces And Persistence", 1
     )[0]
+    normalized = " ".join(authentication.split())
 
-    assert "aisbox start -n demo1" in authentication
+    assert (
+        "Use `aisbox start -n demo1` to authenticate interactively inside a "
+        "disposable container."
+    ) in normalized
     assert "aisbox attach -n demo1" not in authentication
 
 

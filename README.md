@@ -96,9 +96,9 @@ Agent images are built locally during `aisbox create` and `aisbox rebuild`.
 
 ## Authentication
 
-Use `aisbox start -n demo1` to authenticate interactively inside the
-environment, or use an empty assignment to enter an API token at a hidden
-prompt:
+Use `aisbox start -n demo1` to authenticate interactively inside a disposable
+container. Alternatively, use an empty assignment to enter an API token at a
+hidden prompt:
 
 ```bash
 aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=
@@ -162,7 +162,7 @@ aisbox start -n demo1 --keep
 ```
 
 Detach without stopping the retained session by pressing `Ctrl-p Ctrl-q` in
-sequence. `Ctrl-c may stop` the agent and retained session instead.
+sequence. `Ctrl-c` may stop the agent and retained session instead.
 
 Reconnect, list running retained sessions, or stop and remove the retained
 container:
