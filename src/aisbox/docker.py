@@ -9,9 +9,17 @@ from aisbox.models import AgentDefinition, Environment
 
 Runner = Callable[..., subprocess.CompletedProcess]
 
+MANAGED_LABEL = "dev.aisbox.managed"
+ENVIRONMENT_LABEL = "dev.aisbox.environment"
+AGENT_LABEL = "dev.aisbox.agent"
+
 
 def default_runner(command: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(command, **kwargs)
+
+
+def retained_container_name(environment_name: str) -> str:
+    return f"aisbox-{environment_name}"
 
 
 def build_image(agent: AgentDefinition, runner: Runner = default_runner) -> None:
@@ -52,9 +60,18 @@ def container_command(
     config_source: str,
     mode: str,
     prompt: str | None = None,
+    retained: bool = False,
 ) -> list[str]:
-    command = ["docker", "run", "--rm", "-w", "/workspace"]
-    if mode in {"attach", "shell"}:
+    command = ["docker", "run"]
+    if retained:
+        command.extend(["--name", retained_container_name(env.name)])
+        command.extend(["--label", f"{MANAGED_LABEL}=true"])
+        command.extend(["--label", f"{ENVIRONMENT_LABEL}={env.name}"])
+        command.extend(["--label", f"{AGENT_LABEL}={env.agent}"])
+    else:
+        command.append("--rm")
+    command.extend(["-w", "/workspace"])
+    if mode in {"start", "shell"}:
         command.extend(["-it"])
     command.extend(["-v", f"{env.workspace}:/workspace"])
     command.extend(["-v", f"{config_source}:{agent.config_path}"])
@@ -67,7 +84,7 @@ def container_command(
         command.extend(agent.run_command)
         if prompt is not None:
             command.append(prompt)
-    elif mode == "attach":
+    elif mode == "start":
         command.extend(agent.attach_command)
     elif mode == "shell":
         command.extend(agent.shell_command)
@@ -83,5 +100,16 @@ def run_container(
     mode: str,
     prompt: str | None = None,
     runner: Runner = default_runner,
+    retained: bool = False,
 ) -> None:
-    runner(container_command(env, agent, config_source, mode, prompt), check=True)
+    runner(
+        container_command(
+            env,
+            agent,
+            config_source,
+            mode,
+            prompt,
+            retained=retained,
+        ),
+        check=True,
+    )

@@ -2,7 +2,16 @@ import subprocess
 from unittest.mock import Mock
 
 from aisbox.agents import get_agent
-from aisbox.docker import build_image, container_command, docker_available
+from aisbox.docker import (
+    AGENT_LABEL,
+    ENVIRONMENT_LABEL,
+    MANAGED_LABEL,
+    build_image,
+    container_command,
+    docker_available,
+    retained_container_name,
+    run_container,
+)
 from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
 
 
@@ -124,7 +133,7 @@ def test_container_command_uses_stored_environment_image():
     assert agent.image not in command
 
 
-def test_container_command_attach_mode_is_interactive_and_appends_attach_command():
+def test_container_command_start_mode_is_disposable_interactive_and_appends_attach_command():
     agent = get_agent("claude")
     env = Environment(
         name="demo1",
@@ -136,9 +145,45 @@ def test_container_command_attach_mode_is_interactive_and_appends_attach_command
         created_at="2026-06-05T00:00:00Z",
     )
 
-    command = container_command(env, agent, "/tmp/config", "attach")
+    command = container_command(env, agent, "/tmp/config", "start")
 
+    assert "--rm" in command
     assert "-it" in command
+    assert command[-len(agent.attach_command) :] == agent.attach_command
+
+
+def test_container_command_retained_start_has_deterministic_name_and_labels():
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"Z_TOKEN": "last", "A_TOKEN": "first"},
+        workspace="/tmp/workspace",
+        mounts=[Mount(source="/tmp/src", alias="src")],
+        image="aisbox/claude:pinned",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        agent,
+        "/tmp/config",
+        "start",
+        retained=True,
+    )
+
+    assert "--rm" not in command
+    assert command[command.index("--name") + 1] == retained_container_name(env.name)
+    assert command.count("--label") == 3
+    assert f"{MANAGED_LABEL}=true" in command
+    assert f"{ENVIRONMENT_LABEL}={env.name}" in command
+    assert f"{AGENT_LABEL}={env.agent}" in command
+    assert "-it" in command
+    assert "/tmp/workspace:/workspace" in command
+    assert "/tmp/config:/home/aisbox" in command
+    assert "/tmp/src:/workspace/src" in command
+    assert command.index("A_TOKEN=first") < command.index("Z_TOKEN=last")
+    assert "aisbox/claude:pinned" in command
     assert command[-len(agent.attach_command) :] == agent.attach_command
 
 
@@ -156,5 +201,34 @@ def test_container_command_shell_mode_is_interactive_and_appends_shell_command()
 
     command = container_command(env, agent, "/tmp/config", "shell")
 
+    assert "--rm" in command
     assert "-it" in command
     assert command[-len(agent.shell_command) :] == agent.shell_command
+
+
+def test_run_container_forwards_retained_to_container_command():
+    runner = Mock()
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    run_container(
+        env,
+        agent,
+        "/tmp/config",
+        "start",
+        retained=True,
+        runner=runner,
+    )
+
+    command = runner.call_args.args[0]
+    assert "--rm" not in command
+    assert command[command.index("--name") + 1] == "aisbox-demo1"
+    runner.assert_called_once_with(command, check=True)
