@@ -158,7 +158,7 @@ def test_container_command_start_mode_is_disposable_interactive_and_appends_atta
     assert command[-len(agent.attach_command) :] == agent.attach_command
 
 
-def test_container_command_attach_alias_matches_disposable_start():
+def test_container_command_rejects_attach_as_unknown_mode():
     agent = get_agent("claude")
     env = Environment(
         name="demo1",
@@ -170,11 +170,8 @@ def test_container_command_attach_alias_matches_disposable_start():
         created_at="2026-06-05T00:00:00Z",
     )
 
-    start_command = container_command(env, agent, "/tmp/config", "start")
-    attach_command = container_command(env, agent, "/tmp/config", "attach")
-
-    assert attach_command == start_command
-    assert "--rm" in attach_command
+    with pytest.raises(ValueError, match="Unknown container mode: attach"):
+        container_command(env, agent, "/tmp/config", "attach")
 
 
 def test_container_command_retained_start_has_deterministic_name_and_labels():
@@ -213,7 +210,7 @@ def test_container_command_retained_start_has_deterministic_name_and_labels():
     assert command[-len(agent.attach_command) :] == agent.attach_command
 
 
-@pytest.mark.parametrize("mode", ["run", "shell", "attach"])
+@pytest.mark.parametrize("mode", ["run", "shell"])
 def test_container_command_rejects_retained_non_start_modes(mode):
     agent = get_agent("claude")
     env = Environment(

@@ -249,7 +249,10 @@ def test_readme_documents_primary_commands():
     for command in [
         "aisbox create",
         "aisbox run",
+        "aisbox start",
         "aisbox attach",
+        "aisbox sessions",
+        "aisbox kill",
         "aisbox shell",
         "aisbox list",
         "aisbox inspect",

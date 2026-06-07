@@ -7,17 +7,21 @@ import typer
 from aisbox import __version__
 from aisbox.commands import (
     add_mount,
+    attach_environment,
     create_environment,
     delete_environment,
     doctor as run_doctor,
     inspect_environment,
+    kill_session,
     list_environments,
+    list_sessions,
     rebuild_environment,
     remove_mount,
     resolve_environment_name,
     run_environment,
     set_default_environment as set_default_environment_command,
     set_env_vars,
+    start_environment,
     unset_env_vars,
 )
 from aisbox.errors import AisboxError
@@ -29,6 +33,11 @@ env_app = typer.Typer(no_args_is_help=True)
 set_app = typer.Typer(no_args_is_help=True)
 app.add_typer(env_app, name="env")
 app.add_typer(set_app, name="set")
+
+RETAINED_DETACH_GUIDANCE = (
+    "Detach without stopping: Ctrl-p Ctrl-q. "
+    "Ctrl-c may stop the agent and session."
+)
 
 
 def version_callback(value: bool) -> None:
@@ -224,13 +233,61 @@ def run(
         handle_error(exc)
 
 
-@app.command("attach")
-def attach(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+@app.command("start", help="Start an interactive agent.")
+def start(
+    name: str | None = typer.Option(None, "-n", "--name"),
+    keep: bool = typer.Option(
+        False,
+        "--keep",
+        help="Keep one retained session for later attachment.",
+    ),
+) -> None:
     effective_name = effective_environment_name(name)
+    if keep:
+        typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        run_environment(effective_name, "attach")
+        start_environment(effective_name, keep)
     except AisboxError as exc:
         handle_error(exc)
+
+
+@app.command(
+    "attach",
+    help="Attach to a retained agent session, starting one when needed.",
+)
+def attach(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
+    typer.echo(RETAINED_DETACH_GUIDANCE)
+    try:
+        attach_environment(effective_name)
+    except AisboxError as exc:
+        handle_error(exc)
+
+
+@app.command("sessions", help="List running retained agent sessions.")
+def sessions() -> None:
+    try:
+        retained = list_sessions()
+    except AisboxError as exc:
+        handle_error(exc)
+    if not retained:
+        typer.echo("No retained sessions found")
+        return
+    for session in retained:
+        typer.echo(
+            f"{session.environment}\t{session.agent}\t"
+            f"{session.container}\t{session.status}"
+        )
+
+
+@app.command("kill", help="Stop and remove a retained agent session.")
+def kill(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+    effective_name = effective_environment_name(name)
+    try:
+        kill_session(effective_name)
+    except AisboxError as exc:
+        handle_error(exc)
+    typer.echo(f"Killed retained session for {effective_name}")
 
 
 @app.command("shell")

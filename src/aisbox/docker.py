@@ -137,9 +137,6 @@ def container_command(
 ) -> list[str]:
     if retained and mode != "start":
         raise ValueError("Retained containers require start mode")
-    # Remove this alias when the CLI attach command is migrated to start.
-    if mode == "attach":
-        mode = "start"
 
     command = ["docker", "run"]
     if retained:
