@@ -1,6 +1,6 @@
 # aisbox
 
-`aisbox` runs Claude Code and Codex CLI inside Docker containers.
+`aisbox` runs Claude Code, Codex CLI, and OpenCode inside Docker containers.
 Docker containers are disposable by default, with optional retained interactive
 sessions. Workspaces and agent configuration persist through explicit mounts
 and stored environment configuration.
@@ -18,7 +18,8 @@ workspace and additional directory you mount.
 
 - The configured state root (`<state-root>`) is `~/.aisbox` by default and is
   overridden by `AISBOX_HOME`.
-- Host `~/.claude` and `~/.codex` directories are not copied or mounted.
+- Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential
+  directories are not copied or mounted.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
 - Runtime containers are disposable by default. `start --keep` and `attach`
   explicitly retain one interactive container per environment until
@@ -75,6 +76,12 @@ Or use an existing source directory as the workspace:
 aisbox create -n demo1 -a codex --workspace /path/to/source
 ```
 
+Create an OpenCode environment:
+
+```bash
+aisbox create -n demo1 -a opencode --workspace /path/to/source
+```
+
 Set the environment as the default, run a prompt, and inspect the stored
 configuration:
 
@@ -93,6 +100,7 @@ one environment.
 | --- | --- | --- |
 | Claude Code | `claude` | `claude -p` |
 | Codex CLI | `codex` | `codex exec` |
+| OpenCode | `opencode` | `opencode run` |
 
 Agent images are built locally during `aisbox create` and `aisbox rebuild`.
 
@@ -106,6 +114,26 @@ hidden prompt:
 aisbox create -n demo1 -a claude -e ANTHROPIC_API_KEY=
 aisbox env set -n demo1 -e OPENAI_API_KEY=
 ```
+
+For OpenCode, start the TUI and run `/connect`:
+
+```bash
+aisbox start -n demo1
+```
+
+Use `/connect` to configure OpenCode Zen or another supported provider.
+OpenCode also recognizes provider credentials supplied through the environment;
+for example:
+
+```bash
+aisbox create -n demo1 -a opencode -e ANTHROPIC_API_KEY=
+aisbox env set -n demo1 -e OPENAI_API_KEY=
+```
+
+OpenCode supports many providers. Its `opencode.json` configuration can
+reference any environment variable supplied to the container using
+`{env:NAME}`. Consult the OpenCode provider documentation for provider-specific
+requirements.
 
 An assignment ending in `=`, such as `OPENAI_API_KEY=`, opens one hidden prompt.
 Press Enter at that prompt to store an empty value. Prompted values stay out of
@@ -149,6 +177,10 @@ plain `aisbox start`, and `aisbox shell` use `docker run --rm`; their containers
 are removed after the container exits. Retained sessions are opt-in. Their
 container filesystem can hold writable-layer state while the container exists,
 but it is not durable persistence across container removal.
+
+OpenCode may read project `CLAUDE.md` and `.claude/skills` files from the
+mounted workspace through its upstream compatibility behavior. aisbox does not
+copy or mount host `~/.claude` state.
 
 ## Retained Sessions
 
@@ -216,7 +248,7 @@ Run `aisbox --help` or `aisbox <command> --help` for current option details.
 
 ## Known Preview Limitations
 
-- Only Claude Code and Codex CLI are supported.
+- Only Claude Code, Codex CLI, and OpenCode are supported.
 - Agent images are built locally and upstream CLI versions are not pinned.
 - Mounts and stored environment variables are configured manually.
 - Docker-backed integration tests are not part of the normal test suite.

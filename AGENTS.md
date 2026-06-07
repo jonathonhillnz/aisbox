@@ -12,7 +12,8 @@ Core safety contract:
 
 - Environment state is stored under `~/.aisbox/<name>` by default, or
   `AISBOX_HOME` when set.
-- Host `~/.claude` and `~/.codex` directories must not be copied or mounted.
+- Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential
+  directories must not be copied or mounted.
 - Docker is invoked as the current user. Do not add automatic `sudo` behavior.
 - Runtime containers are disposable by default. Retained sessions are explicit
   and removed with `aisbox kill`. Durable persistence after container removal

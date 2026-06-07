@@ -265,6 +265,7 @@ def test_readme_documents_primary_commands():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(
         encoding="utf-8"
     )
+    normalized = " ".join(readme.split())
     commands = (
         readme.split("## Commands", 1)[1]
         .split("```bash", 1)[1]
@@ -307,8 +308,9 @@ def test_readme_documents_primary_commands():
         "aisbox delete -n demo1 --force"
     )
     assert (
-        "Host `~/.claude` and `~/.codex` directories are not copied or mounted."
-        in readme
+        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and "
+        "credential directories are not copied or mounted."
+        in normalized
     )
     assert "does not run Docker through `sudo`" in readme
     assert "AISBOX_HOME" in readme

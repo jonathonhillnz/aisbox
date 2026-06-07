@@ -445,15 +445,20 @@ def test_readme_states_preview_and_safety_contract():
         "Docker",
         "pipx",
         "AISBOX_HOME",
-        "Host `~/.claude` and `~/.codex` directories are not copied or mounted.",
         "does not run Docker through `sudo`",
         "Claude",
         "Codex",
+        "OpenCode",
         "CONTRIBUTING.md",
         "SECURITY.md",
         "Apache-2.0",
     ]:
         assert text in readme
+
+    assert (
+        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and "
+        "credential directories are not copied or mounted."
+    ) in normalized
 
     for text in [
         "Runtime containers are disposable by default",
@@ -601,13 +606,49 @@ def test_readme_uses_disposable_start_for_interactive_authentication():
     assert "aisbox attach -n demo1" not in authentication
 
 
+def test_readme_documents_opencode_support_and_authentication():
+    readme = read_text("README.md")
+    supported = readme.split("## Supported Agents", 1)[1].split(
+        "## Authentication", 1
+    )[0]
+    authentication = readme.split("## Authentication", 1)[1].split(
+        "## Workspaces And Persistence", 1
+    )[0]
+    normalized_auth = " ".join(authentication.split())
+
+    for text in [
+        "| OpenCode | `opencode` | `opencode run` |",
+        "aisbox create -n demo1 -a opencode",
+    ]:
+        assert text in readme
+
+    assert "OpenCode" in supported
+    assert "`/connect`" in normalized_auth
+    assert "OpenCode Zen" in normalized_auth
+    assert "ANTHROPIC_API_KEY=" in normalized_auth
+    assert "OPENAI_API_KEY=" in normalized_auth
+    assert "`{env:NAME}`" in normalized_auth
+    assert "many providers" in normalized_auth
+    assert "OPENCODE_API_KEY=" not in authentication
+
+
+def test_readme_documents_opencode_project_compatibility_without_host_access():
+    readme = read_text("README.md")
+    normalized = " ".join(readme.split())
+
+    assert "project `CLAUDE.md` and `.claude/skills`" in normalized
+    assert "mounted workspace" in normalized
+    assert "host `~/.claude`" in normalized
+    assert "not copied or mounted" in normalized
+
+
 def test_agents_guidance_matches_retained_container_safety_contract():
     agents = read_text("AGENTS.md")
     normalized = " ".join(agents.split())
 
     for text in [
         "Environment state is stored under `~/.aisbox/<name>` by default",
-        "Host `~/.claude` and `~/.codex` directories must not be copied or mounted.",
+        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential directories must not be copied or mounted.",
         "Docker is invoked as the current user.",
         "Do not add automatic `sudo` behavior.",
         "Runtime containers are disposable by default.",
