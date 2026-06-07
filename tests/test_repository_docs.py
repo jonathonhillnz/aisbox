@@ -435,6 +435,8 @@ def test_pull_request_template_covers_review_requirements():
 
 def test_readme_states_preview_and_safety_contract():
     readme = read_text("README.md")
+    normalized = " ".join(readme.split())
+    opening = " ".join(readme.split("> [!WARNING]", 1)[0].split())
 
     for text in [
         "Public preview",
@@ -444,7 +446,6 @@ def test_readme_states_preview_and_safety_contract():
         "AISBOX_HOME",
         "Host `~/.claude` and `~/.codex` directories are not copied or mounted.",
         "does not run Docker through `sudo`",
-        "Runtime containers are disposable",
         "Claude",
         "Codex",
         "CONTRIBUTING.md",
@@ -453,6 +454,19 @@ def test_readme_states_preview_and_safety_contract():
     ]:
         assert text in readme
 
+    for text in [
+        "Runtime containers are disposable by default",
+        "`start --keep` and `attach` explicitly retain",
+        "until `aisbox kill`",
+        (
+            "Persistence still comes from explicit bind mounts and stored "
+            "environment configuration."
+        ),
+    ]:
+        assert text in normalized
+
+    assert "Docker containers are disposable by default" in opening
+    assert "optional retained interactive sessions" in opening
     assert "production-ready" not in readme
 
 
@@ -469,13 +483,71 @@ def test_readme_documents_all_cli_commands():
         "aisbox env set",
         "aisbox env unset",
         "aisbox run",
+        "aisbox start",
         "aisbox attach",
+        "aisbox sessions",
+        "aisbox kill",
         "aisbox shell",
         "aisbox rebuild",
         "aisbox set default",
         "aisbox doctor",
     ]:
         assert command in readme
+
+
+def test_readme_documents_retained_session_lifecycle():
+    readme = read_text("README.md")
+    retained = readme.split("## Retained Sessions", 1)[1].split("## Commands", 1)[0]
+    normalized = " ".join(retained.split())
+
+    for text in [
+        "aisbox start -n demo1",
+        "aisbox start -n demo1 --keep",
+        "Ctrl-p Ctrl-q",
+        "Ctrl-c may stop",
+        "aisbox attach -n demo1",
+        "aisbox sessions",
+        "aisbox kill -n demo1",
+        "one retained container per environment",
+        "creates it when it is missing",
+        "replaces it when it is stopped",
+        "mounts, environment variables, and image",
+        "aisbox kill",
+        "recreate",
+    ]:
+        assert text in normalized
+
+    assert normalized.index("aisbox start -n demo1") < normalized.index(
+        "aisbox start -n demo1 --keep"
+    )
+    assert normalized.index("Ctrl-p Ctrl-q") < normalized.index(
+        "aisbox attach -n demo1"
+    )
+
+
+def test_readme_commands_order_retained_cleanup_before_delete():
+    readme = read_text("README.md")
+    commands = (
+        readme.split("## Commands", 1)[1]
+        .split("```bash", 1)[1]
+        .split("```", 1)[0]
+    )
+
+    retained_commands = [
+        "aisbox run -n demo1",
+        "aisbox start -n demo1",
+        "aisbox start -n demo1 --keep",
+        "aisbox attach -n demo1",
+        "aisbox sessions",
+        "aisbox kill -n demo1",
+        "aisbox shell -n demo1",
+    ]
+    positions = [commands.index(command) for command in retained_commands]
+
+    assert positions == sorted(positions)
+    assert commands.index("aisbox kill -n demo1") < commands.index(
+        "aisbox delete -n demo1 --force"
+    )
 
 
 def test_readme_documents_preview_security_boundaries():
@@ -495,7 +567,19 @@ def test_readme_documents_preview_security_boundaries():
 
     assert "docker receives" in normalized
     assert "local processes" in normalized or "local users" in normalized
+    assert "docker run --rm" in normalized
     assert "after the container exits" in normalized
+    assert "retained sessions are opt-in" in normalized
+
+
+def test_readme_uses_disposable_start_for_interactive_authentication():
+    readme = read_text("README.md")
+    authentication = readme.split("## Authentication", 1)[1].split(
+        "## Workspaces And Persistence", 1
+    )[0]
+
+    assert "aisbox start -n demo1" in authentication
+    assert "aisbox attach -n demo1" not in authentication
 
 
 def test_readme_documents_interactive_environment_values():

@@ -1,7 +1,9 @@
 # aisbox
 
-`aisbox` runs Claude Code and Codex CLI inside disposable Docker containers,
-with explicit persistence for workspaces and agent configuration.
+`aisbox` runs Claude Code and Codex CLI inside Docker containers.
+Docker containers are disposable by default, with optional retained interactive
+sessions. Workspaces and agent configuration persist through explicit mounts
+and stored environment configuration.
 
 > [!WARNING]
 > **Public preview:** `aisbox` is intended for experimentation and feedback.
@@ -18,8 +20,10 @@ workspace and additional directory you mount.
   overridden by `AISBOX_HOME`.
 - Host `~/.claude` and `~/.codex` directories are not copied or mounted.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
-- Runtime containers are disposable. Persistence comes from explicit bind
-  mounts and stored environment configuration.
+- Runtime containers are disposable by default. `start --keep` and `attach`
+  explicitly retain one interactive container per environment until
+  `aisbox kill`. Persistence still comes from explicit bind mounts and stored
+  environment configuration.
 - `aisbox` creates managed state directories with mode `0700` and managed
   state files with mode `0600`, and tightens those permissions on subsequent
   writes.
@@ -92,7 +96,7 @@ Agent images are built locally during `aisbox create` and `aisbox rebuild`.
 
 ## Authentication
 
-Use `aisbox attach -n demo1` to authenticate interactively inside the
+Use `aisbox start -n demo1` to authenticate interactively inside the
 environment, or use an empty assignment to enter an API token at a hidden
 prompt:
 
@@ -138,8 +142,42 @@ The workspace and additional mounts are writable. Additional mounts appear at
 Docker's default outbound network access, agents can send mounted or supplied
 data over the network; mount only trusted, necessary data.
 
-Agent configuration persists under `<state-root>/<name>/config`. Runtime
-containers use `docker run --rm` and are removed after the container exits.
+Agent configuration persists under `<state-root>/<name>/config`. `aisbox run`,
+plain `aisbox start`, and `aisbox shell` use `docker run --rm`; their containers
+are removed after the container exits. Retained sessions are opt-in and do not
+make the container filesystem a persistence mechanism.
+
+## Retained Sessions
+
+Start a normal disposable interactive session with:
+
+```bash
+aisbox start -n demo1
+```
+
+Opt in to one retained container for the environment with:
+
+```bash
+aisbox start -n demo1 --keep
+```
+
+Detach without stopping the retained session by pressing `Ctrl-p Ctrl-q` in
+sequence. `Ctrl-c may stop` the agent and retained session instead.
+
+Reconnect, list running retained sessions, or stop and remove the retained
+container:
+
+```bash
+aisbox attach -n demo1
+aisbox sessions
+aisbox kill -n demo1
+```
+
+`aisbox attach` uses one retained container per environment. It attaches to the
+running container, creates it when it is missing, and replaces it when it is
+stopped. The container captures the environment's mounts, environment
+variables, and image when it is created. After configuration changes, run
+`aisbox kill -n demo1` and recreate the retained session to apply them.
 
 ## Commands
 
@@ -152,7 +190,11 @@ aisbox unmount -n demo1 dir
 aisbox env set -n demo1 -e OPENAI_API_KEY=
 aisbox env unset -n demo1 -e OPENAI_API_KEY
 aisbox run -n demo1 -- "summarize this repository"
+aisbox start -n demo1
+aisbox start -n demo1 --keep
 aisbox attach -n demo1
+aisbox sessions
+aisbox kill -n demo1
 aisbox shell -n demo1
 aisbox rebuild -n demo1
 aisbox set default -n demo1

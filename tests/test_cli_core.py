@@ -245,6 +245,11 @@ def test_readme_documents_primary_commands():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(
         encoding="utf-8"
     )
+    commands = (
+        readme.split("## Commands", 1)[1]
+        .split("```bash", 1)[1]
+        .split("```", 1)[0]
+    )
 
     for command in [
         "aisbox create",
@@ -267,6 +272,20 @@ def test_readme_documents_primary_commands():
     ]:
         assert command in readme
 
+    for command in [
+        "aisbox run -n demo1",
+        "aisbox start -n demo1",
+        "aisbox start -n demo1 --keep",
+        "aisbox attach -n demo1",
+        "aisbox sessions",
+        "aisbox kill -n demo1",
+        "aisbox shell -n demo1",
+    ]:
+        assert command in commands
+
+    assert commands.index("aisbox kill -n demo1") < commands.index(
+        "aisbox delete -n demo1 --force"
+    )
     assert (
         "Host `~/.claude` and `~/.codex` directories are not copied or mounted."
         in readme
