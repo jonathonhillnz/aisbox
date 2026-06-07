@@ -23,17 +23,6 @@ def retained_container_name(environment_name: str) -> str:
     return f"aisbox-{environment_name}"
 
 
-def _parse_labels(value: str | None) -> dict[str, str]:
-    if not value:
-        return {}
-    return {
-        key: label_value
-        for label in value.split(",")
-        for key, separator, label_value in [label.partition("=")]
-        if separator
-    }
-
-
 def inspect_container(
     name: str,
     runner: Runner = default_runner,
@@ -80,7 +69,7 @@ def list_retained_containers(
             "--filter",
             f"label={MANAGED_LABEL}=true",
             "--format",
-            "{{json .}}",
+            "{{.Names}}",
         ],
         check=True,
         capture_output=True,
@@ -88,16 +77,12 @@ def list_retained_containers(
     )
     containers = []
     for line in result.stdout.splitlines():
-        if not line.strip():
+        name = line.strip()
+        if not name:
             continue
-        details = json.loads(line)
-        containers.append(
-            DockerContainer(
-                name=details["Names"],
-                status=details["State"],
-                labels=_parse_labels(details["Labels"]),
-            )
-        )
+        container = inspect_container(name, runner=runner)
+        if container is not None:
+            containers.append(container)
     return containers
 
 
