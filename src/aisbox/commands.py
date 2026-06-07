@@ -83,7 +83,11 @@ def inspect_environment(name: str, store: EnvironmentStore | None = None) -> Env
 
 def delete_environment(name: str, store: EnvironmentStore | None = None) -> None:
     store = store or EnvironmentStore()
-    with _lifecycle_lock(name, store) as validated_name:
+    with _lifecycle_lock(
+        name,
+        store,
+        include_kill_guidance=True,
+    ) as validated_name:
         env = store.load(validated_name)
         try:
             container = _inspect_retained(env)
@@ -217,6 +221,8 @@ def _docker_failure(action: str, environment: str | None = None) -> AisboxError:
 def _lifecycle_lock(
     name: str,
     store: EnvironmentStore,
+    *,
+    include_kill_guidance: bool = False,
 ) -> Iterator[str]:
     name = validate_env_name(name)
     lock_dir = store.root / ".locks"
@@ -267,8 +273,14 @@ def _lifecycle_lock(
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             acquired = True
         except BlockingIOError as exc:
+            guidance = (
+                f"; run 'aisbox kill -n {name}' and retry"
+                if include_kill_guidance
+                else ""
+            )
             raise AisboxError(
-                f"Another lifecycle operation is active for environment: {name}"
+                f"Another lifecycle operation is active for environment: "
+                f"{name}{guidance}"
             ) from exc
         except OSError as exc:
             raise AisboxError(

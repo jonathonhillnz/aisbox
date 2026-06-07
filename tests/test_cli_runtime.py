@@ -148,12 +148,12 @@ def test_held_lifecycle_lock_blocks_delete_before_state_or_docker(
     monkeypatch.setattr("aisbox.commands.inspect_container", inspect_mock)
 
     with commands_module._lifecycle_lock("demo1", store):
-        with pytest.raises(
-            AisboxError,
-            match="Another lifecycle operation is active for environment: demo1",
-        ):
+        with pytest.raises(AisboxError) as exc_info:
             delete_environment("demo1", store=store)
 
+    message = str(exc_info.value)
+    assert "Another lifecycle operation is active for environment: demo1" in message
+    assert "aisbox kill -n demo1" in message
     load_mock.assert_not_called()
     delete_mock.assert_not_called()
     inspect_mock.assert_not_called()
