@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import os
 import stat
 import subprocess
@@ -19,9 +20,19 @@ from aisbox.commands import (
 from aisbox.errors import AisboxError
 from aisbox.models import DockerContainer, RetainedSession
 from aisbox.store import EnvironmentStore
+from aisbox.validation import validate_env_name
 
 
 runner = CliRunner()
+
+
+def hold_lifecycle_lock(aisbox_home, ready, release):
+    os.environ["AISBOX_HOME"] = aisbox_home
+    store = EnvironmentStore()
+    with commands_module._lifecycle_lock("demo1", store):
+        ready.set()
+        if not release.wait(timeout=10):
+            raise RuntimeError("timed out waiting to release lifecycle lock")
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -58,12 +69,17 @@ def test_lifecycle_lock_creates_private_paths(tmp_path, monkeypatch):
     store = EnvironmentStore()
 
     with commands_module._lifecycle_lock("demo1", store):
-        lock_dir = store.root / ".locks"
+        lock_dir = store.root / commands_module._LIFECYCLE_LOCK_NAMESPACE
         lock_file = lock_dir / "demo1.lock"
 
         assert stat.S_IMODE(store.root.stat().st_mode) == 0o700
         assert stat.S_IMODE(lock_dir.stat().st_mode) == 0o700
         assert stat.S_IMODE(lock_file.stat().st_mode) == 0o600
+
+
+def test_lifecycle_lock_namespace_is_not_a_valid_environment_name():
+    with pytest.raises(AisboxError):
+        validate_env_name(commands_module._LIFECYCLE_LOCK_NAMESPACE)
 
 
 def test_lifecycle_lock_releases_after_context_error(tmp_path, monkeypatch):
@@ -82,7 +98,7 @@ def test_lifecycle_lock_releases_after_context_error(tmp_path, monkeypatch):
 def test_lifecycle_lock_rejects_symlinked_lock_file(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     store = EnvironmentStore()
-    lock_dir = store.root / ".locks"
+    lock_dir = store.root / commands_module._LIFECYCLE_LOCK_NAMESPACE
     lock_dir.mkdir(mode=0o700)
     external_file = tmp_path / "external.lock"
     external_file.write_text("unchanged", encoding="utf-8")
@@ -98,6 +114,49 @@ def test_lifecycle_lock_rejects_symlinked_lock_file(tmp_path, monkeypatch):
 
     inspect_mock.assert_not_called()
     assert external_file.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_deleting_dot_locks_environment_does_not_replace_active_lock(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    result = runner.invoke(app, ["create", "-n", ".locks", "-a", "claude"])
+    assert result.exit_code == 0
+    store = EnvironmentStore()
+    context = multiprocessing.get_context("spawn")
+    ready = context.Event()
+    release = context.Event()
+    process = context.Process(
+        target=hold_lifecycle_lock,
+        args=(str(store.root), ready, release),
+    )
+    process.start()
+
+    try:
+        assert ready.wait(timeout=10), "lock holder did not become ready"
+        monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
+
+        delete_environment(".locks", store=store)
+
+        with pytest.raises(
+            AisboxError,
+            match="Another lifecycle operation is active for environment: demo1",
+        ):
+            with commands_module._lifecycle_lock("demo1", store):
+                pass
+    finally:
+        release.set()
+        process.join(timeout=10)
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=10)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=10)
+
+    assert process.exitcode == 0
+    with commands_module._lifecycle_lock("demo1", store):
+        pass
 
 
 @pytest.mark.parametrize(

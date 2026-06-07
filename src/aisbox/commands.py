@@ -36,6 +36,8 @@ from aisbox.validation import (
     validate_mount_alias,
 )
 
+_LIFECYCLE_LOCK_NAMESPACE = "@locks"
+
 
 def create_environment(
     name: str,
@@ -225,7 +227,7 @@ def _lifecycle_lock(
     include_kill_guidance: bool = False,
 ) -> Iterator[str]:
     name = validate_env_name(name)
-    lock_dir = store.root / ".locks"
+    lock_dir = store.root / _LIFECYCLE_LOCK_NAMESPACE
     directory_fd: int | None = None
     lock_fd: int | None = None
     acquired = False
