@@ -156,7 +156,7 @@ def test_container_command_retained_start_has_deterministic_name_and_labels():
     agent = get_agent("claude")
     env = Environment(
         name="demo1",
-        agent="claude",
+        agent="stale-environment-agent",
         env={"Z_TOKEN": "last", "A_TOKEN": "first"},
         workspace="/tmp/workspace",
         mounts=[Mount(source="/tmp/src", alias="src")],
@@ -177,7 +177,8 @@ def test_container_command_retained_start_has_deterministic_name_and_labels():
     assert command.count("--label") == 3
     assert f"{MANAGED_LABEL}=true" in command
     assert f"{ENVIRONMENT_LABEL}={env.name}" in command
-    assert f"{AGENT_LABEL}={env.agent}" in command
+    assert f"{AGENT_LABEL}={agent.name}" in command
+    assert f"{AGENT_LABEL}={env.agent}" not in command
     assert "-it" in command
     assert "/tmp/workspace:/workspace" in command
     assert "/tmp/config:/home/aisbox" in command

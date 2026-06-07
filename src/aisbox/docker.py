@@ -67,7 +67,7 @@ def container_command(
         command.extend(["--name", retained_container_name(env.name)])
         command.extend(["--label", f"{MANAGED_LABEL}=true"])
         command.extend(["--label", f"{ENVIRONMENT_LABEL}={env.name}"])
-        command.extend(["--label", f"{AGENT_LABEL}={env.agent}"])
+        command.extend(["--label", f"{AGENT_LABEL}={agent.name}"])
     else:
         command.append("--rm")
     command.extend(["-w", "/workspace"])
@@ -99,8 +99,8 @@ def run_container(
     config_source: str,
     mode: str,
     prompt: str | None = None,
-    runner: Runner = default_runner,
     retained: bool = False,
+    runner: Runner = default_runner,
 ) -> None:
     runner(
         container_command(
