@@ -31,7 +31,7 @@ def test_doctor_success_creates_private_state_root_regardless_of_umask(
     assert result.exit_code == 0
     assert "Docker: ok" in result.stdout
     assert "State directory: ok" in result.stdout
-    assert "Supported agents: claude, codex" in result.stdout
+    assert "Supported agents: claude, codex, opencode" in result.stdout
     assert mode(home) == 0o700
 
 

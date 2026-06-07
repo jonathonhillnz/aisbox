@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+from unittest.mock import Mock
 
 import pytest
 from typer.testing import CliRunner
@@ -79,6 +80,25 @@ def test_create_list_and_inspect_environment(tmp_path, monkeypatch):
     assert "workspace" in inspected.stdout
     assert "TOKEN" in inspected.stdout
     assert "abc" not in inspected.stdout
+
+
+def test_create_list_and_inspect_opencode_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    build_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.build_image", build_mock)
+
+    created = runner.invoke(
+        app,
+        ["create", "-n", "demo1", "-a", "opencode"],
+    )
+    listed = runner.invoke(app, ["list"])
+    inspected = runner.invoke(app, ["inspect", "-n", "demo1"])
+
+    assert created.exit_code == 0
+    assert listed.stdout.strip().split("\t")[:2] == ["demo1", "opencode"]
+    assert "agent: opencode" in inspected.stdout
+    assert "image: aisbox/opencode:latest" in inspected.stdout
+    assert build_mock.call_args.args[0].name == "opencode"
 
 
 def test_create_prompts_for_empty_env_values(tmp_path, monkeypatch):

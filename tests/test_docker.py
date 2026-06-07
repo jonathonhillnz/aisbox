@@ -19,6 +19,18 @@ from aisbox.docker import (
 from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
 
 
+def opencode_environment() -> Environment:
+    return Environment(
+        name="demo1",
+        agent="opencode",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/opencode:latest",
+        created_at="2026-06-07T00:00:00Z",
+    )
+
+
 def test_docker_and_retained_session_records_expose_lifecycle_fields():
     container = DockerContainer(
         container_id="sha256:demo1",
@@ -118,6 +130,46 @@ def test_container_command_includes_mounts_env_and_prompt():
     assert "/tmp/src:/workspace/src" in command
     assert "TOKEN=abc" in command
     assert command[-2:] == ["-p", "hello"]
+
+
+def test_container_command_runs_opencode_non_interactively():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "run",
+        "hello",
+    )
+
+    assert "/tmp/config:/home/aisbox" in command
+    assert command[-3:] == ["opencode", "run", "hello"]
+
+
+def test_container_command_starts_opencode_interactively():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "start",
+    )
+
+    assert "--rm" in command
+    assert "-it" in command
+    assert command[-1:] == ["opencode"]
+
+
+def test_container_command_starts_retained_opencode_session():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "start",
+        retained=True,
+    )
+
+    assert "--rm" not in command
+    assert f"{AGENT_LABEL}=opencode" in command
+    assert command[-1:] == ["opencode"]
 
 
 def test_container_command_uses_stored_environment_image():

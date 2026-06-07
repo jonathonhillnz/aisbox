@@ -4,8 +4,8 @@ from aisbox.agents import get_agent, supported_agents
 from aisbox.errors import AisboxError
 
 
-def test_supported_agents_include_claude_and_codex():
-    assert supported_agents() == ["claude", "codex"]
+def test_supported_agents_include_claude_codex_and_opencode():
+    assert supported_agents() == ["claude", "codex", "opencode"]
 
 
 def test_get_agent_returns_claude_definition():
@@ -30,7 +30,18 @@ def test_get_agent_returns_codex_definition():
     assert "npm install -g @openai/codex" in agent.dockerfile
 
 
-@pytest.mark.parametrize("agent_name", ["claude", "codex"])
+def test_get_agent_returns_opencode_definition():
+    agent = get_agent("opencode")
+
+    assert agent.name == "opencode"
+    assert agent.image == "aisbox/opencode:latest"
+    assert agent.config_path == "/home/aisbox"
+    assert agent.run_command == ["opencode", "run"]
+    assert agent.attach_command == ["opencode"]
+    assert "npm install -g opencode-ai@latest" in agent.dockerfile
+
+
+@pytest.mark.parametrize("agent_name", ["claude", "codex", "opencode"])
 def test_agent_dockerfile_installs_global_npm_package_before_switching_user(agent_name):
     dockerfile = get_agent(agent_name).dockerfile
 

@@ -663,3 +663,21 @@ def test_rebuild_invokes_image_build_for_stored_agent(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Rebuilt demo1" in result.stdout
     assert build_mock.call_args.args[0].name == "claude"
+
+
+def test_rebuild_invokes_image_build_for_opencode(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.build_image", lambda agent: None)
+    created = runner.invoke(
+        app,
+        ["create", "-n", "demo1", "-a", "opencode"],
+    )
+    assert created.exit_code == 0
+
+    build_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.build_image", build_mock)
+
+    result = runner.invoke(app, ["rebuild", "-n", "demo1"])
+
+    assert result.exit_code == 0
+    assert build_mock.call_args.args[0].name == "opencode"

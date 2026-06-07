@@ -45,6 +45,17 @@ AGENTS = {
         run_command=["codex", "exec"],
         attach_command=["codex"],
     ),
+    "opencode": AgentDefinition(
+        name="opencode",
+        image="aisbox/opencode:latest",
+        config_path="/home/aisbox",
+        dockerfile=BASE_DOCKERFILE_PREFIX
+        + "RUN npm install -g opencode-ai@latest\n"
+        + "USER aisbox\n"
+        + "WORKDIR /workspace\n",
+        run_command=["opencode", "run"],
+        attach_command=["opencode"],
+    ),
 }
 
 
