@@ -544,13 +544,14 @@ def test_readme_documents_retained_session_lifecycle():
     )
 
 
-def test_readme_commands_include_retained_workflow_and_kill_before_delete():
+def test_readme_commands_keep_lifecycle_workflow_before_delete():
     readme = read_text("README.md")
     commands = (
         readme.split("## Commands", 1)[1]
         .split("```bash", 1)[1]
         .split("```", 1)[0]
     )
+    delete_position = commands.index("aisbox delete -n demo1 --force")
 
     for command in [
         "aisbox run -n demo1",
@@ -562,10 +563,7 @@ def test_readme_commands_include_retained_workflow_and_kill_before_delete():
         "aisbox shell -n demo1",
     ]:
         assert command in commands
-
-    assert commands.index("aisbox kill -n demo1") < commands.index(
-        "aisbox delete -n demo1 --force"
-    )
+        assert commands.index(command) < delete_position
 
 
 def test_readme_documents_preview_security_boundaries():
