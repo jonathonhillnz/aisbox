@@ -29,7 +29,8 @@ def _parse_labels(value: str | None) -> dict[str, str]:
     return {
         key: label_value
         for label in value.split(",")
-        for key, _, label_value in [label.partition("=")]
+        for key, separator, label_value in [label.partition("=")]
+        if separator
     }
 
 

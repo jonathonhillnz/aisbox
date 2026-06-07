@@ -354,6 +354,18 @@ def test_inspect_container_raises_for_other_failures():
     assert exc_info.value.returncode == 1
 
 
+def test_parse_labels_ignores_tokens_without_separator():
+    value = (
+        f"{MANAGED_LABEL}=true,malformed,"
+        f"{ENVIRONMENT_LABEL}=demo1"
+    )
+
+    assert docker_module._parse_labels(value) == {
+        MANAGED_LABEL: "true",
+        ENVIRONMENT_LABEL: "demo1",
+    }
+
+
 def test_list_retained_containers_parses_json_lines_including_exited():
     rows = [
         {
