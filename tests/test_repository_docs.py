@@ -446,9 +446,6 @@ def test_readme_states_preview_and_safety_contract():
         "pipx",
         "AISBOX_HOME",
         "does not run Docker through `sudo`",
-        "Claude",
-        "Codex",
-        "OpenCode",
         "CONTRIBUTING.md",
         "SECURITY.md",
         "Apache-2.0",
@@ -479,6 +476,10 @@ def test_readme_states_preview_and_safety_contract():
 
     assert "Docker containers are disposable by default" in opening
     assert "optional retained interactive sessions" in opening
+    assert (
+        "`aisbox` runs Claude Code, Codex CLI, and OpenCode inside Docker containers."
+        in opening
+    )
     assert "production-ready" not in readme
 
 
@@ -616,20 +617,32 @@ def test_readme_documents_opencode_support_and_authentication():
     )[0]
     normalized_auth = " ".join(authentication.split())
 
-    for text in [
+    for row in [
+        "| Claude Code | `claude` | `claude -p` |",
+        "| Codex CLI | `codex` | `codex exec` |",
         "| OpenCode | `opencode` | `opencode run` |",
-        "aisbox create -n demo1 -a opencode",
     ]:
-        assert text in readme
+        assert row in supported
 
-    assert "OpenCode" in supported
+    assert "aisbox create -n demo1 -a opencode" in readme
     assert "`/connect`" in normalized_auth
     assert "OpenCode Zen" in normalized_auth
     assert "ANTHROPIC_API_KEY=" in normalized_auth
     assert "OPENAI_API_KEY=" in normalized_auth
     assert "`{env:NAME}`" in normalized_auth
     assert "many providers" in normalized_auth
-    assert "OPENCODE_API_KEY=" not in authentication
+    assert "OPENCODE_API_KEY=" not in readme
+    assert "OPENCODE_EXPERIMENTAL_" not in readme
+    assert "OPENCODE_" not in readme
+
+
+def test_readme_limits_supported_agents_to_the_documented_three():
+    readme = read_text("README.md")
+    limitations = readme.split("## Known Preview Limitations", 1)[1].split(
+        "## Development", 1
+    )[0]
+
+    assert "Only Claude Code, Codex CLI, and OpenCode are supported." in limitations
 
 
 def test_readme_documents_opencode_project_compatibility_without_host_access():
