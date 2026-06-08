@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 import subprocess
 from unittest.mock import Mock
@@ -11,6 +12,12 @@ from aisbox.store import EnvironmentStore
 
 
 runner = CliRunner()
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def normalize_help_output(output: str) -> str:
+    plain = ANSI_ESCAPE_RE.sub("", output)
+    return " ".join(plain.replace("│", " ").split())
 
 
 def test_cli_version():
@@ -30,7 +37,7 @@ def test_cli_version():
 )
 def test_environment_options_have_help(args, help_text):
     result = runner.invoke(app, args, terminal_width=120)
-    normalized = " ".join(result.stdout.replace("│", " ").split())
+    normalized = normalize_help_output(result.stdout)
 
     assert result.exit_code == 0
     assert "-e" in normalized
