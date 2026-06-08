@@ -657,6 +657,29 @@ def test_readme_documents_run_permission_policy():
         assert text in normalized
 
 
+def test_aisbox_coagent_skill_documents_permission_policy_choice():
+    normalized = " ".join(read_text("skills/aisbox-coagent/SKILL.md").split())
+
+    for text in [
+        "Choose the permission policy — ASK every time.",
+        "`default` for clearly read-only work",
+        "`auto` for work likely to need normal in-workspace writes",
+        "`bypass` only when the operator explicitly wants maximum autonomy",
+        "may disable agent sandbox checks",
+        "only for trusted workspaces and scoped prompts",
+        "Do not recommend it by default.",
+        "Use that, or keep the agent default?",
+        "`bypass` reduces agent safeguards and may disable sandbox checks",
+        "fail -> fallback",
+        "fallback -> stop",
+        'aisbox run --permission-policy auto -- "<prompt>"',
+        "About to use `auto` or `bypass` without operator approval",
+        "Using `default` for a write task and causing an approval deadlock",
+    ]:
+        assert text in normalized
+    assert "fail -> sat" not in read_text("skills/aisbox-coagent/SKILL.md")
+
+
 def test_readme_limits_supported_agents_to_the_documented_three():
     readme = read_text("README.md")
     limitations = readme.split("## Known Preview Limitations", 1)[1].split(
