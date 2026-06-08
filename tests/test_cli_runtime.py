@@ -598,6 +598,82 @@ def test_run_applies_repeated_temporary_mounts_without_saving(tmp_path, monkeypa
     assert stored_env.mounts == []
 
 
+def test_temporary_mount_rejects_persisted_alias_collision(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    temporary = tmp_path / "temporary"
+    source.mkdir()
+    temporary.mkdir()
+    mounted = runner.invoke(app, ["mount", "-n", "demo1", str(source), "src"])
+    assert mounted.exit_code == 0
+
+    result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--mount", str(temporary), "src", "--", "hello"],
+    )
+
+    assert result.exit_code == 1
+    assert "Error:" in result.stderr
+    assert "Mount alias already exists: src" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_temporary_mount_rejects_duplicate_alias(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(first),
+            "src",
+            "--mount",
+            str(second),
+            "src",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Error:" in result.stderr
+    assert "Mount alias already exists: src" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_temporary_workspace_and_mount_sources_must_be_directories(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    workspace_file = tmp_path / "workspace.txt"
+    mount_file = tmp_path / "mount.txt"
+    workspace_file.write_text("not a directory", encoding="utf-8")
+    mount_file.write_text("not a directory", encoding="utf-8")
+
+    workspace_result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--workspace", str(workspace_file), "--", "hello"],
+    )
+    mount_result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--mount", str(mount_file), "src", "--", "hello"],
+    )
+
+    assert workspace_result.exit_code == 1
+    assert "Workspace path does not exist" in workspace_result.stderr
+    assert "Traceback" not in workspace_result.stderr
+    assert mount_result.exit_code == 1
+    assert "Mount source path must be an existing directory" in mount_result.stderr
+    assert "Traceback" not in mount_result.stderr
+
+
 def test_run_treats_mount_tokens_after_prompt_start_as_prompt(
     tmp_path, monkeypatch
 ):

@@ -167,6 +167,21 @@ aisbox mount -n demo1 /path/to/dir dir
 aisbox unmount -n demo1 dir
 ```
 
+Use temporary workspace and mount overrides for a single runtime session:
+
+```bash
+aisbox run -n demo1 --workspace /path/to/temp/workspace "inspect this"
+aisbox start -n demo1 --workspace /path/to/temp/workspace
+aisbox start -n demo1 --mount /path/to/dir dir
+aisbox attach -n demo1 --mount /path/to/dir dir
+```
+
+Temporary overrides are not saved to the environment. For disposable `run` and
+plain `start`, they apply to one container only. For retained sessions, they
+last until the retained container created with those overrides is killed or
+replaced. `attach` and `start --keep` with overrides fail only if a retained
+session is already running because running container mounts cannot be changed.
+
 The workspace and additional mounts are writable. Additional mounts appear at
 `/workspace/<alias>` and expose the selected host directory to the agent. With
 Docker's default outbound network access, agents can send mounted or supplied
@@ -232,9 +247,12 @@ aisbox unmount -n demo1 dir
 aisbox env set -n demo1 -e OPENAI_API_KEY=
 aisbox env unset -n demo1 -e OPENAI_API_KEY
 aisbox run -n demo1 -- "summarize this repository"
+aisbox run -n demo1 --workspace /path/to/temp/workspace "prompt"
 aisbox start -n demo1
+aisbox start -n demo1 --mount /path/to/dir dir
 aisbox start -n demo1 --keep
 aisbox attach -n demo1
+aisbox attach -n demo1 --mount /path/to/dir dir
 aisbox sessions
 aisbox kill -n demo1
 aisbox shell -n demo1
