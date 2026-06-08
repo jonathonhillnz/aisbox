@@ -27,7 +27,13 @@ from aisbox.docker import (
     run_container,
 )
 from aisbox.errors import AisboxError
-from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
+from aisbox.models import (
+    DockerContainer,
+    Environment,
+    Mount,
+    PermissionPolicy,
+    RetainedSession,
+)
 from aisbox.store import EnvironmentStore
 from aisbox.validation import (
     parse_env_assignment,
@@ -243,13 +249,22 @@ def run_environment(
     *,
     workspace: str | None = None,
     mounts: list[tuple[str, str]] | None = None,
+    permission_policy: PermissionPolicy = "default",
 ) -> None:
     store = store or EnvironmentStore()
     env = _runtime_environment(store.load(name), workspace, mounts)
     agent = get_agent(env.agent)
     config_source = str(store.config_dir(env.name))
+    run_kwargs = {"permission_policy": permission_policy} if mode == "run" else {}
     try:
-        run_container(env, agent, config_source, mode, prompt)
+        run_container(
+            env,
+            agent,
+            config_source,
+            mode,
+            prompt,
+            **run_kwargs,
+        )
     except FileNotFoundError as exc:
         raise AisboxError("Docker is not installed or not available on PATH") from exc
     except subprocess.CalledProcessError as exc:

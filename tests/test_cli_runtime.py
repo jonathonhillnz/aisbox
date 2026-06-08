@@ -491,6 +491,50 @@ def test_run_builds_non_interactive_docker_command(tmp_path, monkeypatch):
     assert prompt == "hello"
 
 
+def test_run_passes_permission_policy_to_container(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--permission-policy", "auto", "--", "hello"],
+    )
+
+    assert result.exit_code == 0
+    assert runner_mock.call_args.kwargs["permission_policy"] == "auto"
+
+
+def test_run_permission_policy_is_not_saved(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--permission-policy", "bypass", "--", "hello"],
+    )
+
+    assert result.exit_code == 0
+    stored_env = EnvironmentStore().load("demo1")
+    assert not hasattr(stored_env, "permission_policy")
+
+
+def test_run_rejects_invalid_permission_policy_without_traceback(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+
+    result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "--permission-policy", "invalid", "--", "hello"],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--permission-policy'" in result.stdout
+    assert "Traceback" not in result.stdout
+
+
 def test_run_without_prompt_passes_none(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()

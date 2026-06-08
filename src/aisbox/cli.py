@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional, cast
 
 import typer
 
@@ -104,6 +104,18 @@ def consume_temporary_mount_args(
         values.extend([remaining[1], remaining[2]])
         remaining = remaining[3:]
     return resolve_temporary_mounts(values), remaining
+
+
+def parse_permission_policy(
+    value: str,
+) -> Literal["default", "auto", "bypass"]:
+    if value not in {"default", "auto", "bypass"}:
+        typer.echo(
+            f"Invalid value for '--permission-policy': {value!r} is not one of "
+            "'default', 'auto', 'bypass'."
+        )
+        raise typer.Exit(code=2)
+    return cast(Literal["default", "auto", "bypass"], value)
 
 
 @app.callback()
@@ -264,6 +276,13 @@ def run(
     ctx: typer.Context,
     name: str | None = typer.Option(None, "-n", "--name"),
     workspace: str | None = typer.Option(None, "--workspace"),
+    permission_policy: Literal["default", "auto", "bypass"] = typer.Option(
+        "default",
+        "--permission-policy",
+        help="Agent permission policy for this run: default, auto, or bypass.",
+        metavar="default|auto|bypass",
+        parser=parse_permission_policy,
+    ),
     mount_sources: list[str] = typer.Option(
         [],
         "--mount",
@@ -280,6 +299,7 @@ def run(
             prompt,
             workspace=workspace,
             mounts=mounts,
+            permission_policy=permission_policy,
         )
     except AisboxError as exc:
         handle_error(exc)
