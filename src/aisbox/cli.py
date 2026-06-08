@@ -74,6 +74,37 @@ def resolve_env_assignments(assignments: list[str]) -> list[str]:
     return resolved
 
 
+def resolve_temporary_mounts(values: list[str]) -> list[tuple[str, str]]:
+    if len(values) % 2 != 0:
+        raise AisboxError("--mount requires SOURCE ALIAS")
+    return [
+        (values[index], values[index + 1])
+        for index in range(0, len(values), 2)
+    ]
+
+
+def consume_temporary_mount_args(
+    sources: list[str],
+    args: list[str],
+) -> tuple[list[tuple[str, str]], list[str]]:
+    values: list[str] = []
+    remaining = list(args)
+    for source in sources:
+        if not remaining:
+            raise AisboxError("--mount requires SOURCE ALIAS")
+        values.extend([source, remaining.pop(0)])
+    while remaining:
+        if remaining[0] == "--":
+            return resolve_temporary_mounts(values), remaining[1:]
+        if remaining[0] != "--mount":
+            break
+        if len(remaining) < 3:
+            raise AisboxError("--mount requires SOURCE ALIAS")
+        values.extend([remaining[1], remaining[2]])
+        remaining = remaining[3:]
+    return resolve_temporary_mounts(values), remaining
+
+
 @app.callback()
 def root(
     version: Optional[bool] = typer.Option(
@@ -220,33 +251,72 @@ def env_unset(
         typer.echo(f"Unset {key}")
 
 
-@app.command("run", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@app.command(
+    "run",
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+        "allow_interspersed_args": False,
+    },
+)
 def run(
     ctx: typer.Context,
     name: str | None = typer.Option(None, "-n", "--name"),
+    workspace: str | None = typer.Option(None, "--workspace"),
+    mount_sources: list[str] = typer.Option(
+        [],
+        "--mount",
+        help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
-    prompt = " ".join(ctx.args) if ctx.args else None
     try:
-        run_environment(effective_name, "run", prompt)
+        mounts, prompt_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        prompt = " ".join(prompt_args) if prompt_args else None
+        run_environment(
+            effective_name,
+            "run",
+            prompt,
+            workspace=workspace,
+            mounts=mounts,
+        )
     except AisboxError as exc:
         handle_error(exc)
 
 
-@app.command("start", help="Start an interactive agent.")
+@app.command(
+    "start",
+    help="Start an interactive agent.",
+    context_settings={"allow_extra_args": True},
+)
 def start(
+    ctx: typer.Context,
     name: str | None = typer.Option(None, "-n", "--name"),
     keep: bool = typer.Option(
         False,
         "--keep",
         help="Keep one retained session for later attachment.",
     ),
+    workspace: str | None = typer.Option(None, "--workspace"),
+    mount_sources: list[str] = typer.Option(
+        [],
+        "--mount",
+        help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
     if keep:
         typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        start_environment(effective_name, keep)
+        mounts, remaining_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        if remaining_args:
+            raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
+        start_environment(
+            effective_name,
+            keep,
+            workspace=workspace,
+            mounts=mounts,
+        )
     except AisboxError as exc:
         handle_error(exc)
 

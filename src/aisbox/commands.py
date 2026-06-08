@@ -376,10 +376,17 @@ def _inspect_retained(env: Environment) -> DockerContainer | None:
     )
 
 
-def _run_retained(env: Environment, store: EnvironmentStore) -> None:
+def _run_retained(
+    env: Environment,
+    store: EnvironmentStore,
+    *,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
+) -> None:
+    runtime_env = _runtime_environment(env, workspace, mounts)
     agent = get_agent(env.agent)
     run_container(
-        env,
+        runtime_env,
         agent,
         str(store.config_dir(env.name)),
         "start",
@@ -390,6 +397,9 @@ def _run_retained(env: Environment, store: EnvironmentStore) -> None:
 def _ensure_retained_session(
     name: str,
     store: EnvironmentStore | None = None,
+    *,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
 ) -> None:
     store = store or EnvironmentStore()
     with _lifecycle_lock(name, store) as validated_name:
@@ -397,12 +407,12 @@ def _ensure_retained_session(
         try:
             container = _inspect_retained(env)
             if container is None:
-                _run_retained(env, store)
+                _run_retained(env, store, workspace=workspace, mounts=mounts)
             elif container.status == "running":
                 attach_container(container.container_id)
             else:
                 remove_container(container.container_id)
-                _run_retained(env, store)
+                _run_retained(env, store, workspace=workspace, mounts=mounts)
         except FileNotFoundError as exc:
             raise AisboxError(
                 "Docker is not installed or not available on PATH"
@@ -420,11 +430,14 @@ def start_environment(
     name: str,
     keep: bool,
     store: EnvironmentStore | None = None,
+    *,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
 ) -> None:
     if keep:
-        _ensure_retained_session(name, store)
+        _ensure_retained_session(name, store, workspace=workspace, mounts=mounts)
         return
-    run_environment(name, "start", store=store)
+    run_environment(name, "start", store=store, workspace=workspace, mounts=mounts)
 
 
 def attach_environment(

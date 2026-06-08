@@ -257,6 +257,35 @@ def test_retained_start_creates_missing_session(tmp_path, monkeypatch):
     assert run_mock.call_args.kwargs == {"retained": True}
 
 
+def test_retained_start_applies_temporary_overrides_when_creating_session(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace-override"
+    source = tmp_path / "source"
+    workspace.mkdir()
+    source.mkdir()
+    monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
+    run_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+
+    start_environment(
+        "demo1",
+        keep=True,
+        workspace=str(workspace),
+        mounts=[(str(source), "src")],
+    )
+
+    runtime_env = run_mock.call_args.args[0]
+    stored_env = EnvironmentStore().load("demo1")
+    assert runtime_env.workspace == str(workspace.resolve())
+    assert runtime_env.mounts == [Mount(source=str(source.resolve()), alias="src")]
+    assert stored_env.workspace != str(workspace.resolve())
+    assert stored_env.mounts == []
+    assert run_mock.call_args.args[3] == "start"
+    assert run_mock.call_args.kwargs == {"retained": True}
+
+
 def test_attach_joins_running_retained_session(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     monkeypatch.setattr(
@@ -569,6 +598,55 @@ def test_run_applies_repeated_temporary_mounts_without_saving(tmp_path, monkeypa
     assert stored_env.mounts == []
 
 
+def test_run_treats_mount_tokens_after_prompt_start_as_prompt(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        ["run", "-n", "demo1", "hello", "--mount", str(source), "bar"],
+    )
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    assert runtime_env.mounts == []
+    assert runner_mock.call_args.args[4] == f"hello --mount {source} bar"
+
+
+def test_run_parses_mounts_before_prompt_separator_only(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--",
+            "hello",
+            "--mount",
+            "literal",
+        ],
+    )
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    assert runtime_env.mounts == [Mount(source=str(source.resolve()), alias="src")]
+    assert runner_mock.call_args.args[4] == "hello --mount literal"
+
+
 def test_start_and_shell_use_disposable_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     start_mock = Mock()
@@ -582,8 +660,40 @@ def test_start_and_shell_use_disposable_interactive_modes(tmp_path, monkeypatch)
     assert started.exit_code == 0
     assert shell.exit_code == 0
     assert started.stdout == ""
-    start_mock.assert_called_once_with("demo1", False)
+    start_mock.assert_called_once_with("demo1", False, workspace=None, mounts=[])
     assert runner_mock.call_args.args[3] == "shell"
+
+
+def test_start_passes_temporary_workspace_and_mounts(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace-override"
+    source = tmp_path / "source"
+    workspace.mkdir()
+    source.mkdir()
+    start_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.start_environment", start_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "start",
+            "-n",
+            "demo1",
+            "--workspace",
+            str(workspace),
+            "--mount",
+            str(source),
+            "src",
+        ],
+    )
+
+    assert result.exit_code == 0
+    start_mock.assert_called_once_with(
+        "demo1",
+        False,
+        workspace=str(workspace),
+        mounts=[(str(source), "src")],
+    )
 
 
 def test_retained_commands_print_guidance_and_invoke_lifecycle(
@@ -606,7 +716,7 @@ def test_retained_commands_print_guidance_and_invoke_lifecycle(
     assert attached.exit_code == 0
     assert started.stdout.strip() == guidance
     assert attached.stdout.strip() == guidance
-    start_mock.assert_called_once_with("demo1", True)
+    start_mock.assert_called_once_with("demo1", True, workspace=None, mounts=[])
     attach_mock.assert_called_once_with("demo1")
 
 
