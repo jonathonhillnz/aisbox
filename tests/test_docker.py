@@ -16,7 +16,14 @@ from aisbox.docker import (
     retained_container_name,
     run_container,
 )
-from aisbox.models import DockerContainer, Environment, Mount, RetainedSession
+from aisbox.errors import AisboxError
+from aisbox.models import (
+    AgentDefinition,
+    DockerContainer,
+    Environment,
+    Mount,
+    RetainedSession,
+)
 
 
 def opencode_environment() -> Environment:
@@ -143,6 +150,179 @@ def test_container_command_runs_opencode_non_interactively():
 
     assert "/tmp/config:/home/aisbox" in command
     assert command[-3:] == ["opencode", "run", "hello"]
+
+
+def test_container_command_runs_claude_with_auto_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="auto",
+    )
+
+    assert command[-4:] == ["-p", "--permission-mode", "auto", "hello"]
+
+
+def test_container_command_runs_claude_with_bypass_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="bypass",
+    )
+
+    assert command[-3:] == ["-p", "--dangerously-skip-permissions", "hello"]
+
+
+def test_container_command_runs_codex_with_auto_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="codex",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/codex:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("codex"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="auto",
+    )
+
+    assert command[-6:] == [
+        "exec",
+        "--ask-for-approval",
+        "never",
+        "--sandbox",
+        "workspace-write",
+        "hello",
+    ]
+
+
+def test_container_command_runs_codex_with_bypass_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="codex",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/codex:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("codex"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="bypass",
+    )
+
+    assert command[-3:] == [
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "hello",
+    ]
+
+
+def test_container_command_runs_opencode_with_auto_permission_policy():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="auto",
+    )
+
+    assert command[-4:] == [
+        "opencode",
+        "run",
+        "--dangerously-skip-permissions",
+        "hello",
+    ]
+
+
+def test_container_command_runs_opencode_with_bypass_permission_policy():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "run",
+        "hello",
+        permission_policy="bypass",
+    )
+
+    assert command[-4:] == [
+        "opencode",
+        "run",
+        "--dangerously-skip-permissions",
+        "hello",
+    ]
+
+
+def test_container_command_rejects_unsupported_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="custom",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/custom:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+    agent = AgentDefinition(
+        name="custom",
+        image="aisbox/custom:latest",
+        config_path="/home/aisbox",
+        dockerfile="FROM ubuntu:24.04",
+        run_command=["custom", "run"],
+        run_permission_commands={"default": ["custom", "run"]},
+        attach_command=["custom"],
+    )
+
+    with pytest.raises(
+        AisboxError,
+        match="Permission policy 'auto' is not supported",
+    ):
+        container_command(
+            env,
+            agent,
+            "/tmp/config",
+            "run",
+            "hello",
+            permission_policy="auto",
+        )
 
 
 def test_container_command_starts_opencode_interactively():

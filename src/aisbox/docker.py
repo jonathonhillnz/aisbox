@@ -5,7 +5,8 @@ import os
 import subprocess
 from collections.abc import Callable
 
-from aisbox.models import AgentDefinition, DockerContainer, Environment
+from aisbox.errors import AisboxError
+from aisbox.models import AgentDefinition, DockerContainer, Environment, PermissionPolicy
 
 
 Runner = Callable[..., subprocess.CompletedProcess]
@@ -134,6 +135,7 @@ def container_command(
     mode: str,
     prompt: str | None = None,
     retained: bool = False,
+    permission_policy: PermissionPolicy = "default",
 ) -> list[str]:
     if retained and mode != "start":
         raise ValueError("Retained containers require start mode")
@@ -157,7 +159,14 @@ def container_command(
         command.extend(["-e", f"{key}={value}"])
     command.append(env.image)
     if mode == "run":
-        command.extend(agent.run_command)
+        try:
+            run_command = agent.run_permission_commands[permission_policy]
+        except KeyError as exc:
+            raise AisboxError(
+                f"Permission policy '{permission_policy}' is not supported "
+                f"for agent: {agent.name}"
+            ) from exc
+        command.extend(run_command)
         if prompt is not None:
             command.append(prompt)
     elif mode == "start":
@@ -178,6 +187,7 @@ def run_container(
     runner: Runner = default_runner,
     *,
     retained: bool = False,
+    permission_policy: PermissionPolicy = "default",
 ) -> None:
     runner(
         container_command(
@@ -187,6 +197,7 @@ def run_container(
             mode,
             prompt,
             retained=retained,
+            permission_policy=permission_policy,
         ),
         check=True,
     )
