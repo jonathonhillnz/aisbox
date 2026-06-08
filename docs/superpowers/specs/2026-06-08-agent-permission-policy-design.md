@@ -32,6 +32,8 @@ mechanism.
 - Let non-interactive `aisbox run` perform ordinary in-workspace file writes
   without waiting for impossible approval prompts.
 - Keep a stable aisbox interface across Claude Code, Codex CLI, and OpenCode.
+- Update the local `aisbox-coagent` skill so delegated coagent runs ask for an
+  explicit permission policy and recommend a policy from task intent.
 - Preserve Docker isolation, bind mount boundaries, and the existing rule that
   host agent configuration and credential directories are not copied or
   mounted.
@@ -46,6 +48,7 @@ mechanism.
 - Do not make bypass mode the default.
 - Do not add persisted permission policy to `aisbox create` in this change.
 - Do not add raw arbitrary agent-argument passthrough in this change.
+- Do not let the coagent skill silently choose elevated agent permissions.
 
 ## User Interface
 
@@ -126,6 +129,45 @@ the prompt string when one is present.
 The stored `Environment` model remains unchanged. The policy is an invocation
 option, not environment state.
 
+## Coagent Skill Behavior
+
+The local skill at `skills/aisbox-coagent/SKILL.md` will be updated because it
+constructs `aisbox run` commands for delegated one-shot work.
+
+The skill already requires the operator to choose workspace exposure before a
+coagent run. It will add permission policy as another operator-owned decision.
+The agent using the skill should infer the likely policy from the delegated
+task, explain the recommendation briefly, and ask before running.
+
+Recommended heuristic:
+
+- Use `default` for clearly read-only work: explain code, inspect repository
+  structure, summarize files, review architecture, or answer questions.
+- Use `auto` for work likely to need normal in-workspace writes or write-like
+  commands: create files, edit code, add tests, generate docs, run formatters
+  that update files, or validate write permissions.
+- Mention `bypass` when the operator explicitly asks for maximum autonomy or
+  when the task needs broad command execution. Do not recommend it by default.
+
+The prompt should be concise and explicit, for example:
+
+```text
+This looks write-capable, so I recommend --permission-policy auto. Use that,
+choose bypass, or keep the agent default?
+```
+
+The skill's quick reference will include:
+
+```text
+aisbox run --permission-policy auto -- "<prompt>"
+```
+
+The workflow and flowchart will add permission policy selection after workspace
+selection and before sandbox resolution. Common mistakes and red flags will add:
+
+- using `default` for a write task and causing an approval deadlock
+- using `auto` or `bypass` without operator approval
+
 ## Validation And Errors
 
 Typer should reject invalid `--permission-policy` values before command
@@ -177,6 +219,8 @@ Unit and CLI tests will cover:
 - The policy is not saved to environment JSON.
 - Invalid policy values fail through Typer without a traceback.
 - README documents the flag, the per-agent mapping, and the safety tradeoff.
+- The `aisbox-coagent` skill documents permission policy selection, includes
+  the read-only/write-capable heuristic, and warns against silent escalation.
 
 ## Documentation
 
@@ -195,3 +239,7 @@ The docs will explain:
   containers with explicit workspace and mount choices.
 - Claude, Codex, and OpenCode do not use identical upstream terminology, so
   aisbox maps the policy to each agent's closest supported behavior.
+
+`skills/aisbox-coagent/SKILL.md` will document how local AI agents should ask
+for a coagent permission policy before launching `aisbox run`, including the
+recommended heuristic for read-only versus write-capable delegated work.
