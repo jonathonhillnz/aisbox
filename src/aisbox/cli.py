@@ -324,12 +324,25 @@ def start(
 @app.command(
     "attach",
     help="Attach to a retained agent session, starting one when needed.",
+    context_settings={"allow_extra_args": True},
 )
-def attach(name: str | None = typer.Option(None, "-n", "--name")) -> None:
+def attach(
+    ctx: typer.Context,
+    name: str | None = typer.Option(None, "-n", "--name"),
+    workspace: str | None = typer.Option(None, "--workspace"),
+    mount_sources: list[str] = typer.Option(
+        [],
+        "--mount",
+        help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
+    ),
+) -> None:
     effective_name = effective_environment_name(name)
     typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        attach_environment(effective_name)
+        mounts, remaining_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        if remaining_args:
+            raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
+        attach_environment(effective_name, workspace=workspace, mounts=mounts)
     except AisboxError as exc:
         handle_error(exc)
 

@@ -717,7 +717,88 @@ def test_retained_commands_print_guidance_and_invoke_lifecycle(
     assert started.stdout.strip() == guidance
     assert attached.stdout.strip() == guidance
     start_mock.assert_called_once_with("demo1", True, workspace=None, mounts=[])
-    attach_mock.assert_called_once_with("demo1")
+    attach_mock.assert_called_once_with("demo1", workspace=None, mounts=[])
+
+
+def test_attach_passes_temporary_mounts_to_lifecycle(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    attach_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.attach_environment", attach_mock)
+
+    result = runner.invoke(
+        app,
+        ["attach", "-n", "demo1", "--mount", str(source), "src"],
+    )
+
+    assert result.exit_code == 0
+    attach_mock.assert_called_once_with(
+        "demo1",
+        workspace=None,
+        mounts=[(str(source), "src")],
+    )
+
+
+def test_attach_uses_overrides_when_creating_missing_retained_session(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    workspace = tmp_path / "workspace-override"
+    source = tmp_path / "source"
+    workspace.mkdir()
+    source.mkdir()
+    monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
+    run_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+
+    attach_environment(
+        "demo1",
+        workspace=str(workspace),
+        mounts=[(str(source), "src")],
+    )
+
+    runtime_env = run_mock.call_args.args[0]
+    assert runtime_env.workspace == str(workspace.resolve())
+    assert runtime_env.mounts == [Mount(source=str(source.resolve()), alias="src")]
+
+
+def test_attach_rejects_overrides_when_retained_session_already_running(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setattr(
+        "aisbox.commands.inspect_container",
+        lambda name: managed_container(status="running"),
+    )
+    attach_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.attach_container", attach_mock)
+
+    with pytest.raises(AisboxError, match="run 'aisbox kill -n demo1'"):
+        attach_environment("demo1", mounts=[(str(source), "src")])
+
+    attach_mock.assert_not_called()
+
+
+def test_start_keep_rejects_overrides_when_retained_session_already_running(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setattr(
+        "aisbox.commands.inspect_container",
+        lambda name: managed_container(status="running"),
+    )
+    attach_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.attach_container", attach_mock)
+
+    with pytest.raises(AisboxError, match="run 'aisbox kill -n demo1'"):
+        start_environment("demo1", True, mounts=[(str(source), "src")])
+
+    attach_mock.assert_not_called()
 
 
 def test_retained_command_help_describes_session_behavior():
@@ -804,7 +885,9 @@ def test_retained_cli_errors_do_not_emit_tracebacks(
     setup_env(tmp_path, monkeypatch)
     monkeypatch.setattr(
         f"aisbox.cli.{target}",
-        lambda *arguments: (_ for _ in ()).throw(AisboxError("retained failure")),
+        lambda *arguments, **keywords: (_ for _ in ()).throw(
+            AisboxError("retained failure")
+        ),
     )
 
     result = runner.invoke(app, args)

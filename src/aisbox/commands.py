@@ -376,6 +376,13 @@ def _inspect_retained(env: Environment) -> DockerContainer | None:
     )
 
 
+def _has_runtime_overrides(
+    workspace: str | None,
+    mounts: list[tuple[str, str]] | None,
+) -> bool:
+    return workspace is not None or bool(mounts)
+
+
 def _run_retained(
     env: Environment,
     store: EnvironmentStore,
@@ -409,10 +416,18 @@ def _ensure_retained_session(
             if container is None:
                 _run_retained(env, store, workspace=workspace, mounts=mounts)
             elif container.status == "running":
+                if _has_runtime_overrides(workspace, mounts):
+                    raise AisboxError(
+                        f"Environment {env.name} already has a retained session; "
+                        f"run 'aisbox kill -n {env.name}' before starting one "
+                        "with different mounts"
+                    )
                 attach_container(container.container_id)
             else:
                 remove_container(container.container_id)
                 _run_retained(env, store, workspace=workspace, mounts=mounts)
+        except AisboxError:
+            raise
         except FileNotFoundError as exc:
             raise AisboxError(
                 "Docker is not installed or not available on PATH"
@@ -443,8 +458,11 @@ def start_environment(
 def attach_environment(
     name: str,
     store: EnvironmentStore | None = None,
+    *,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
 ) -> None:
-    _ensure_retained_session(name, store)
+    _ensure_retained_session(name, store, workspace=workspace, mounts=mounts)
 
 
 def list_sessions(
