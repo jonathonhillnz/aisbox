@@ -421,9 +421,10 @@ def _ensure_retained_session(
                         f"Environment {env.name} already has a retained session; "
                         f"run 'aisbox kill -n {env.name}' before starting one "
                         "with different mounts"
-                    )
+                )
                 attach_container(container.container_id)
             else:
+                _runtime_environment(env, workspace, mounts)
                 remove_container(container.container_id)
                 _run_retained(env, store, workspace=workspace, mounts=mounts)
         except AisboxError:

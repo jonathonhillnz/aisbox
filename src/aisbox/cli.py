@@ -89,6 +89,7 @@ def consume_temporary_mount_args(
 ) -> tuple[list[tuple[str, str]], list[str]]:
     values: list[str] = []
     remaining = list(args)
+    saw_mount_option = bool(sources)
     for source in sources:
         if not remaining:
             raise AisboxError("--mount requires SOURCE ALIAS")
@@ -96,7 +97,7 @@ def consume_temporary_mount_args(
     while remaining:
         if remaining[0] == "--":
             return resolve_temporary_mounts(values), remaining[1:]
-        if remaining[0] != "--mount":
+        if remaining[0] != "--mount" or not saw_mount_option:
             break
         if len(remaining) < 3:
             raise AisboxError("--mount requires SOURCE ALIAS")

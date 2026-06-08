@@ -723,6 +723,19 @@ def test_run_parses_mounts_before_prompt_separator_only(tmp_path, monkeypatch):
     assert runner_mock.call_args.args[4] == "hello --mount literal"
 
 
+def test_run_prompt_can_start_with_mount_token_after_separator(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(app, ["run", "-n", "demo1", "--", "--mount", "foo"])
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    assert runtime_env.mounts == []
+    assert runner_mock.call_args.args[4] == "--mount foo"
+
+
 def test_start_and_shell_use_disposable_interactive_modes(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     start_mock = Mock()
@@ -875,6 +888,28 @@ def test_start_keep_rejects_overrides_when_retained_session_already_running(
         start_environment("demo1", True, mounts=[(str(source), "src")])
 
     attach_mock.assert_not_called()
+
+
+def test_invalid_overrides_do_not_remove_stopped_retained_session(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    missing_source = tmp_path / "missing"
+    monkeypatch.setattr(
+        "aisbox.commands.inspect_container",
+        lambda name: managed_container(status="exited"),
+    )
+    remove_mock = Mock()
+    run_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.remove_container", remove_mock)
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+
+    with pytest.raises(
+        AisboxError,
+        match="Mount source path must be an existing directory",
+    ):
+        attach_environment("demo1", mounts=[(str(missing_source), "src")])
+
+    remove_mock.assert_not_called()
+    run_mock.assert_not_called()
 
 
 def test_retained_command_help_describes_session_behavior():

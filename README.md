@@ -179,8 +179,9 @@ aisbox attach -n demo1 --mount /path/to/dir dir
 Temporary overrides are not saved to the environment. For disposable `run` and
 plain `start`, they apply to one container only. For retained sessions, they
 last until the retained container created with those overrides is killed or
-replaced. `attach` and `start --keep` with overrides fail only if a retained
-session is already running because running container mounts cannot be changed.
+replaced. When a retained session is already running, `attach` and
+`start --keep` with overrides fail because running container mounts cannot be
+changed.
 
 The workspace and additional mounts are writable. Additional mounts appear at
 `/workspace/<alias>` and expose the selected host directory to the agent. With
