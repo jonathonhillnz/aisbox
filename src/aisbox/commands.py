@@ -163,6 +163,45 @@ def remove_mount(name: str, alias: str, store: EnvironmentStore | None = None) -
     store.save(env)
 
 
+def _runtime_environment(
+    env: Environment,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
+) -> Environment:
+    runtime_workspace = env.workspace
+    if workspace is not None:
+        workspace_path = Path(workspace).expanduser().resolve()
+        if not workspace_path.exists() or not workspace_path.is_dir():
+            raise AisboxError(
+                f"Workspace path does not exist: {workspace_path}"
+            )
+        runtime_workspace = str(workspace_path)
+
+    runtime_mounts = list(env.mounts)
+    seen_aliases = {mount.alias for mount in runtime_mounts}
+    for source, alias_value in mounts or []:
+        alias = validate_mount_alias(alias_value)
+        if alias in seen_aliases:
+            raise AisboxError(f"Mount alias already exists: {alias}")
+        source_path = Path(source).expanduser().resolve()
+        if not source_path.exists() or not source_path.is_dir():
+            raise AisboxError(
+                f"Mount source path must be an existing directory: {source_path}"
+            )
+        runtime_mounts.append(Mount(source=str(source_path), alias=alias))
+        seen_aliases.add(alias)
+
+    return Environment(
+        name=env.name,
+        agent=env.agent,
+        env=dict(env.env),
+        workspace=runtime_workspace,
+        mounts=runtime_mounts,
+        image=env.image,
+        created_at=env.created_at,
+    )
+
+
 def set_env_vars(
     name: str,
     assignments: list[str],
@@ -201,9 +240,12 @@ def run_environment(
     mode: str,
     prompt: str | None = None,
     store: EnvironmentStore | None = None,
+    *,
+    workspace: str | None = None,
+    mounts: list[tuple[str, str]] | None = None,
 ) -> None:
     store = store or EnvironmentStore()
-    env = store.load(name)
+    env = _runtime_environment(store.load(name), workspace, mounts)
     agent = get_agent(env.agent)
     config_source = str(store.config_dir(env.name))
     try:

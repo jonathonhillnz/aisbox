@@ -18,7 +18,7 @@ from aisbox.commands import (
     start_environment,
 )
 from aisbox.errors import AisboxError
-from aisbox.models import DockerContainer, RetainedSession
+from aisbox.models import DockerContainer, Mount, RetainedSession
 from aisbox.store import EnvironmentStore
 from aisbox.validation import validate_env_name
 
@@ -503,6 +503,70 @@ def test_run_explicit_name_overrides_default_environment(tmp_path, monkeypatch):
     assert result.exit_code == 0
     env = runner_mock.call_args.args[0]
     assert env.name == "demo2"
+
+
+def test_run_applies_temporary_workspace_without_saving(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    temporary_workspace = tmp_path / "temporary-workspace"
+    temporary_workspace.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--workspace",
+            str(temporary_workspace),
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    stored_env = EnvironmentStore().load("demo1")
+    assert runtime_env.workspace == str(temporary_workspace.resolve())
+    assert stored_env.workspace != str(temporary_workspace.resolve())
+    assert stored_env.mounts == []
+
+
+def test_run_applies_repeated_temporary_mounts_without_saving(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(first),
+            "first",
+            "--mount",
+            str(second),
+            "second",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    stored_env = EnvironmentStore().load("demo1")
+    assert runtime_env.mounts == [
+        Mount(source=str(first.resolve()), alias="first"),
+        Mount(source=str(second.resolve()), alias="second"),
+    ]
+    assert stored_env.mounts == []
 
 
 def test_start_and_shell_use_disposable_interactive_modes(tmp_path, monkeypatch):
