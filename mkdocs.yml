@@ -1,0 +1,59 @@
+site_name: aisbox
+site_description: Run AI coding agents inside isolated Docker environments
+site_url: https://jonathonhillnz.github.io/aisbox/
+repo_url: https://github.com/jonathonhillnz/aisbox
+repo_name: jonathonhillnz/aisbox
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - tables
+
+# docs/superpowers holds internal design specs and plans, not user docs.
+exclude_docs: |
+  superpowers/
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - Guides:
+      - Environments: guide/environments.md
+      - Running Agents: guide/running-agents.md
+      - Authentication: guide/authentication.md
+      - Workspaces & Persistence: guide/workspaces.md
+      - Retained Sessions: guide/retained-sessions.md
+  - Command Reference: reference/commands.md
+  - Safety Model: safety.md
+  - Preview Limitations: limitations.md
