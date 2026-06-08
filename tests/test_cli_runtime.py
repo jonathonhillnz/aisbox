@@ -767,6 +767,64 @@ def test_run_parses_mounts_before_prompt_separator_only(tmp_path, monkeypatch):
     assert runner_mock.call_args.args[4] == "hello --mount literal"
 
 
+def test_run_parses_permission_policy_after_temporary_mount(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--permission-policy",
+            "auto",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 0
+    runtime_env = runner_mock.call_args.args[0]
+    assert runtime_env.mounts == [Mount(source=str(source.resolve()), alias="src")]
+    assert runner_mock.call_args.kwargs["permission_policy"] == "auto"
+    assert runner_mock.call_args.args[4] == "hello"
+
+
+def test_run_rejects_invalid_permission_policy_after_temporary_mount(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--permission-policy",
+            "invalid",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--permission-policy'" in result.stdout
+    assert "Traceback" not in result.stdout
+
+
 def test_run_prompt_can_start_with_mount_token_after_separator(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()
@@ -871,6 +929,34 @@ def test_attach_passes_temporary_mounts_to_lifecycle(tmp_path, monkeypatch):
         workspace=None,
         mounts=[(str(source), "src")],
     )
+
+
+@pytest.mark.parametrize("command", ["start", "attach"])
+def test_interactive_commands_reject_permission_policy_after_temporary_mount(
+    tmp_path, monkeypatch, command
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+
+    result = runner.invoke(
+        app,
+        [
+            command,
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--permission-policy",
+            "auto",
+        ],
+    )
+
+    assert result.exit_code != 0
+    combined_output = result.stdout + result.stderr
+    assert "--permission-policy" in combined_output
+    assert "Traceback" not in combined_output
 
 
 def test_attach_uses_overrides_when_creating_missing_retained_session(

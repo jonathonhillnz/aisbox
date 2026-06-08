@@ -86,8 +86,9 @@ def resolve_temporary_mounts(values: list[str]) -> list[tuple[str, str]]:
 def consume_temporary_mount_args(
     sources: list[str],
     args: list[str],
-) -> tuple[list[tuple[str, str]], list[str]]:
+) -> tuple[list[tuple[str, str]], Literal["default", "auto", "bypass"] | None, list[str]]:
     values: list[str] = []
+    permission_policy: Literal["default", "auto", "bypass"] | None = None
     remaining = list(args)
     saw_mount_option = bool(sources)
     for source in sources:
@@ -96,14 +97,20 @@ def consume_temporary_mount_args(
         values.extend([source, remaining.pop(0)])
     while remaining:
         if remaining[0] == "--":
-            return resolve_temporary_mounts(values), remaining[1:]
+            return resolve_temporary_mounts(values), permission_policy, remaining[1:]
+        if remaining[0] == "--permission-policy" and saw_mount_option:
+            if len(remaining) < 2:
+                raise AisboxError("--permission-policy requires VALUE")
+            permission_policy = parse_permission_policy(remaining[1])
+            remaining = remaining[2:]
+            continue
         if remaining[0] != "--mount" or not saw_mount_option:
             break
         if len(remaining) < 3:
             raise AisboxError("--mount requires SOURCE ALIAS")
         values.extend([remaining[1], remaining[2]])
         remaining = remaining[3:]
-    return resolve_temporary_mounts(values), remaining
+    return resolve_temporary_mounts(values), permission_policy, remaining
 
 
 def parse_permission_policy(
@@ -291,7 +298,10 @@ def run(
 ) -> None:
     effective_name = effective_environment_name(name)
     try:
-        mounts, prompt_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        mounts, parsed_permission_policy, prompt_args = consume_temporary_mount_args(
+            mount_sources, ctx.args
+        )
+        effective_permission_policy = parsed_permission_policy or permission_policy
         prompt = " ".join(prompt_args) if prompt_args else None
         run_environment(
             effective_name,
@@ -299,7 +309,7 @@ def run(
             prompt,
             workspace=workspace,
             mounts=mounts,
-            permission_policy=permission_policy,
+            permission_policy=effective_permission_policy,
         )
     except AisboxError as exc:
         handle_error(exc)
@@ -329,7 +339,11 @@ def start(
     if keep:
         typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        mounts, remaining_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        mounts, parsed_permission_policy, remaining_args = consume_temporary_mount_args(
+            mount_sources, ctx.args
+        )
+        if parsed_permission_policy is not None:
+            raise AisboxError("Unexpected argument: --permission-policy")
         if remaining_args:
             raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
         start_environment(
@@ -360,7 +374,11 @@ def attach(
     effective_name = effective_environment_name(name)
     typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        mounts, remaining_args = consume_temporary_mount_args(mount_sources, ctx.args)
+        mounts, parsed_permission_policy, remaining_args = consume_temporary_mount_args(
+            mount_sources, ctx.args
+        )
+        if parsed_permission_policy is not None:
+            raise AisboxError("Unexpected argument: --permission-policy")
         if remaining_args:
             raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
         attach_environment(effective_name, workspace=workspace, mounts=mounts)
