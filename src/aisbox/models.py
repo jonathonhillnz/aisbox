@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+
+PermissionPolicy = Literal["default", "auto", "bypass"]
 
 
 @dataclass(frozen=True)
@@ -27,6 +31,7 @@ class AgentDefinition:
     config_path: str
     dockerfile: str
     run_command: list[str]
+    run_permission_commands: dict[PermissionPolicy, list[str]]
     attach_command: list[str]
     shell_command: list[str] = field(default_factory=lambda: ["/bin/bash"])
 

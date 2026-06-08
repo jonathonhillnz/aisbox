@@ -32,6 +32,11 @@ AGENTS = {
         + "USER aisbox\n"
         + "WORKDIR /workspace\n",
         run_command=["claude", "-p"],
+        run_permission_commands={
+            "default": ["claude", "-p"],
+            "auto": ["claude", "-p", "--permission-mode", "auto"],
+            "bypass": ["claude", "-p", "--dangerously-skip-permissions"],
+        },
         attach_command=["claude"],
     ),
     "codex": AgentDefinition(
@@ -43,6 +48,18 @@ AGENTS = {
         + "USER aisbox\n"
         + "WORKDIR /workspace\n",
         run_command=["codex", "exec"],
+        run_permission_commands={
+            "default": ["codex", "exec"],
+            "auto": [
+                "codex",
+                "exec",
+                "--ask-for-approval",
+                "never",
+                "--sandbox",
+                "workspace-write",
+            ],
+            "bypass": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox"],
+        },
         attach_command=["codex"],
     ),
     "opencode": AgentDefinition(
@@ -54,6 +71,11 @@ AGENTS = {
         + "USER aisbox\n"
         + "WORKDIR /workspace\n",
         run_command=["opencode", "run"],
+        run_permission_commands={
+            "default": ["opencode", "run"],
+            "auto": ["opencode", "run", "--dangerously-skip-permissions"],
+            "bypass": ["opencode", "run", "--dangerously-skip-permissions"],
+        },
         attach_command=["opencode"],
     ),
 }

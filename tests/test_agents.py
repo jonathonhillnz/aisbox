@@ -15,6 +15,11 @@ def test_get_agent_returns_claude_definition():
     assert agent.image == "aisbox/claude:latest"
     assert agent.config_path == "/home/aisbox"
     assert agent.run_command == ["claude", "-p"]
+    assert agent.run_permission_commands == {
+        "default": ["claude", "-p"],
+        "auto": ["claude", "-p", "--permission-mode", "auto"],
+        "bypass": ["claude", "-p", "--dangerously-skip-permissions"],
+    }
     assert agent.attach_command == ["claude"]
     assert "npm install -g @anthropic-ai/claude-code" in agent.dockerfile
 
@@ -26,6 +31,18 @@ def test_get_agent_returns_codex_definition():
     assert agent.image == "aisbox/codex:latest"
     assert agent.config_path == "/home/aisbox"
     assert agent.run_command == ["codex", "exec"]
+    assert agent.run_permission_commands == {
+        "default": ["codex", "exec"],
+        "auto": [
+            "codex",
+            "exec",
+            "--ask-for-approval",
+            "never",
+            "--sandbox",
+            "workspace-write",
+        ],
+        "bypass": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox"],
+    }
     assert agent.attach_command == ["codex"]
     assert "npm install -g @openai/codex" in agent.dockerfile
 
@@ -37,6 +54,11 @@ def test_get_agent_returns_opencode_definition():
     assert agent.image == "aisbox/opencode:latest"
     assert agent.config_path == "/home/aisbox"
     assert agent.run_command == ["opencode", "run"]
+    assert agent.run_permission_commands == {
+        "default": ["opencode", "run"],
+        "auto": ["opencode", "run", "--dangerously-skip-permissions"],
+        "bypass": ["opencode", "run", "--dangerously-skip-permissions"],
+    }
     assert agent.attach_command == ["opencode"]
     assert "npm install -g opencode-ai@latest" in agent.dockerfile
 
