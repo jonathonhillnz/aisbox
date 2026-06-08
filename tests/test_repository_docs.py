@@ -636,6 +636,27 @@ def test_readme_documents_opencode_support_and_authentication():
     assert "OPENCODE_EXPERIMENTAL_" not in readme
 
 
+def test_readme_documents_run_permission_policy():
+    normalized = " ".join(read_text("README.md").split())
+
+    for text in [
+        'aisbox run --permission-policy auto -- "update the tests"',
+        'aisbox run --permission-policy bypass -- "prototype the change"',
+        "`default` keeps the agent's default approval behavior",
+        "`auto` is recommended for non-interactive write-capable runs",
+        "`bypass` disables agent-level approval prompts and may also disable the selected agent's own sandbox checks",
+        "Claude Code",
+        "`--permission-mode auto`",
+        "`--dangerously-skip-permissions`",
+        "Codex CLI",
+        "`--ask-for-approval never --sandbox workspace-write`",
+        "`--dangerously-bypass-approvals-and-sandbox`",
+        "OpenCode",
+        "maps to `--dangerously-skip-permissions`",
+    ]:
+        assert text in normalized
+
+
 def test_readme_limits_supported_agents_to_the_documented_three():
     readme = read_text("README.md")
     limitations = readme.split("## Known Preview Limitations", 1)[1].split(

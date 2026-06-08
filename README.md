@@ -104,6 +104,39 @@ one environment.
 
 Agent images are built locally during `aisbox create` and `aisbox rebuild`.
 
+## Run Permission Policies
+
+`aisbox run` supports `--permission-policy default|auto|bypass` to choose how
+agent-level permissions are configured for a disposable run.
+
+`default` keeps the agent's default approval behavior. Use it when you want the
+upstream agent CLI to decide whether to ask before writes, commands, or other
+actions.
+
+`auto` is recommended for non-interactive write-capable runs, such as CI-style
+delegation where the agent should edit files inside the selected workspace
+without stopping for approval prompts:
+
+```bash
+aisbox run --permission-policy auto -- "update the tests"
+```
+
+`bypass` disables agent-level approval prompts and may also disable the
+selected agent's own sandbox checks. Use it only inside trusted aisbox
+containers with explicit workspace and mount choices:
+
+```bash
+aisbox run --permission-policy bypass -- "prototype the change"
+```
+
+Policy mappings are agent-specific:
+
+| Agent | `auto` mapping | `bypass` mapping |
+| --- | --- | --- |
+| Claude Code | `--permission-mode auto` | `--dangerously-skip-permissions` |
+| Codex CLI | `--ask-for-approval never --sandbox workspace-write` | `--dangerously-bypass-approvals-and-sandbox` |
+| OpenCode | maps to `--dangerously-skip-permissions` | maps to `--dangerously-skip-permissions` |
+
 ## Authentication
 
 Use `aisbox start -n demo1` to authenticate interactively inside a disposable
@@ -249,6 +282,7 @@ aisbox env set -n demo1 -e OPENAI_API_KEY=
 aisbox env unset -n demo1 -e OPENAI_API_KEY
 aisbox run -n demo1 -- "summarize this repository"
 aisbox run -n demo1 --workspace /path/to/temp/workspace "prompt"
+aisbox run -n demo1 --permission-policy auto -- "update the tests"
 aisbox start -n demo1
 aisbox start -n demo1 --mount /path/to/dir dir
 aisbox start -n demo1 --keep
