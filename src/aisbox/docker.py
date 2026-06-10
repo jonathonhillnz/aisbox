@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from collections.abc import Callable
+import tempfile
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 from aisbox.errors import AisboxError
 from aisbox.models import AgentDefinition, DockerContainer, Environment, PermissionPolicy
@@ -126,6 +128,38 @@ def docker_available(runner: Runner = default_runner) -> bool:
     except (FileNotFoundError, subprocess.CalledProcessError):
         return False
     return True
+
+
+@contextmanager
+def _env_file_for(env: dict[str, str]) -> Iterator[str | None]:
+    """Write env vars to a temp file and yield the path.
+
+    The file is created with 0600 permissions and deleted on context exit.
+    Yields ``None`` when *env* is empty (no temp file is created).
+    """
+    if not env:
+        yield None
+        return
+
+    tmp = None
+    try:
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            delete=False,
+            prefix="aisbox-env-",
+        )
+        os.chmod(tmp.name, 0o600)
+        for key in sorted(env):
+            tmp.write(f"{key}={env[key]}\n")
+        tmp.close()
+        yield tmp.name
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp.name)
+            except FileNotFoundError:
+                pass
 
 
 def container_command(

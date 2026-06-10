@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 import subprocess
 from unittest.mock import Mock, call
 
@@ -10,6 +12,7 @@ from aisbox.docker import (
     AGENT_LABEL,
     ENVIRONMENT_LABEL,
     MANAGED_LABEL,
+    _env_file_for,
     build_image,
     container_command,
     docker_available,
@@ -742,3 +745,41 @@ def test_remove_container_invokes_exact_docker_command():
         ["docker", "rm", "--force", "sha256:demo1"],
         check=True,
     )
+
+
+def test_env_file_for_creates_temp_file_with_key_value_content():
+    env = {"ANTHROPIC_API_KEY": "sk-secret-123", "OPENAI_API_KEY": "sk-other-456"}
+
+    with _env_file_for(env) as env_file:
+        assert env_file is not None
+        content = open(env_file).read()
+        lines = content.strip().split("\n")
+        assert "ANTHROPIC_API_KEY=sk-secret-123" in lines
+        assert "OPENAI_API_KEY=sk-other-456" in lines
+        # Verify sorted order
+        assert lines[0] == "ANTHROPIC_API_KEY=sk-secret-123"
+        assert lines[1] == "OPENAI_API_KEY=sk-other-456"
+        # Verify permissions are 0600
+        file_stat = os.stat(env_file)
+        assert stat.S_IMODE(file_stat.st_mode) == 0o600
+
+    # Verify cleanup after with-block
+    assert not os.path.exists(env_file)
+
+
+def test_env_file_for_cleans_up_when_block_raises():
+    env = {"TOKEN": "abc"}
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with _env_file_for(env) as env_file:
+            assert env_file is not None
+            assert os.path.exists(env_file)
+            raise RuntimeError("boom")
+
+    # Temp file must be gone even after exception
+    assert not os.path.exists(env_file)
+
+
+def test_env_file_for_empty_dict_is_noop_yields_none():
+    with _env_file_for({}) as env_file:
+        assert env_file is None
