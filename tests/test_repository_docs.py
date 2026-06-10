@@ -185,14 +185,15 @@ def test_public_preview_files_exist():
         ".github/ISSUE_TEMPLATE/feature_request.yml",
         ".github/ISSUE_TEMPLATE/config.yml",
         ".github/pull_request_template.md",
-        ".github/workflows/ci.yml",
+        ".github/workflows/ci.yml.disabled",
     ]:
         assert (ROOT / path).is_file()
+    assert not (ROOT / ".github/workflows/ci.yml").exists()
 
 
 def test_ci_workflow_tests_supported_python_versions_without_docker():
-    workflow = load_yaml(".github/workflows/ci.yml")
-    workflow_text = read_text(".github/workflows/ci.yml")
+    workflow = load_yaml(".github/workflows/ci.yml.disabled")
+    workflow_text = read_text(".github/workflows/ci.yml.disabled")
 
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["on"] == {"push": None, "pull_request": None}
