@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from collections.abc import Callable
+import tempfile
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 from aisbox.errors import AisboxError
 from aisbox.models import AgentDefinition, DockerContainer, Environment, PermissionPolicy
@@ -128,6 +130,58 @@ def docker_available(runner: Runner = default_runner) -> bool:
     return True
 
 
+@contextmanager
+def _env_file_for(env: dict[str, str]) -> Iterator[str | None]:
+    """Write env vars to a temp file and yield the path.
+
+    The file is created with 0600 permissions and deleted on context exit.
+    Yields ``None`` when *env* is empty (no temp file is created).
+    """
+    if not env:
+        yield None
+        return
+
+    # Validate values before writing — Docker's env-file format does not
+    # support newlines or comment-prefixed keys.
+    for key, value in env.items():
+        if "\n" in value:
+            raise AisboxError(
+                f"Environment variable {key!r} contains a newline character, "
+                f"which is not supported by Docker's --env-file format"
+            )
+
+    tmp = None
+    try:
+        try:
+            previous_umask = os.umask(0o177)
+            try:
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    delete=False,
+                    prefix="aisbox-env-",
+                )
+            finally:
+                os.umask(previous_umask)
+            # Double-check with chmod to be safe on platforms where umask
+            # doesn't fully control the mode.
+            os.chmod(tmp.name, 0o600)
+            for key in sorted(env):
+                tmp.write(f"{key}={env[key]}\n")
+            tmp.close()
+            yield tmp.name
+        except OSError as exc:
+            raise AisboxError(
+                f"Failed to create environment variable file: {exc}"
+            ) from exc
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp.name)
+            except FileNotFoundError:
+                pass
+
+
 def container_command(
     env: Environment,
     agent: AgentDefinition,
@@ -136,6 +190,7 @@ def container_command(
     prompt: str | None = None,
     retained: bool = False,
     permission_policy: PermissionPolicy = "default",
+    env_file: str | None = None,
 ) -> list[str]:
     if retained and mode != "start":
         raise ValueError("Retained containers require start mode")
@@ -155,8 +210,12 @@ def container_command(
     command.extend(["-v", f"{config_source}:{agent.config_path}"])
     for mount in env.mounts:
         command.extend(["-v", f"{mount.source}:/workspace/{mount.alias}"])
-    for key, value in sorted(env.env.items()):
-        command.extend(["-e", f"{key}={value}"])
+    if env.env:
+        if env_file is not None:
+            command.extend(["--env-file", env_file])
+        else:
+            for key, value in sorted(env.env.items()):
+                command.extend(["-e", f"{key}={value}"])
     command.append(env.image)
     if mode == "run":
         try:
@@ -189,15 +248,17 @@ def run_container(
     retained: bool = False,
     permission_policy: PermissionPolicy = "default",
 ) -> None:
-    runner(
-        container_command(
-            env,
-            agent,
-            config_source,
-            mode,
-            prompt,
-            retained=retained,
-            permission_policy=permission_policy,
-        ),
-        check=True,
-    )
+    with _env_file_for(env.env) as env_file:
+        runner(
+            container_command(
+                env,
+                agent,
+                config_source,
+                mode,
+                prompt,
+                retained=retained,
+                permission_policy=permission_policy,
+                env_file=env_file,
+            ),
+            check=True,
+        )

@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 import subprocess
 from unittest.mock import Mock, call
 
@@ -10,6 +12,7 @@ from aisbox.docker import (
     AGENT_LABEL,
     ENVIRONMENT_LABEL,
     MANAGED_LABEL,
+    _env_file_for,
     build_image,
     container_command,
     docker_available,
@@ -742,3 +745,189 @@ def test_remove_container_invokes_exact_docker_command():
         ["docker", "rm", "--force", "sha256:demo1"],
         check=True,
     )
+
+
+def test_env_file_for_creates_temp_file_with_key_value_content():
+    env = {"ANTHROPIC_API_KEY": "sk-secret-123", "OPENAI_API_KEY": "sk-other-456"}
+
+    with _env_file_for(env) as env_file:
+        assert env_file is not None
+        content = open(env_file).read()
+        lines = content.strip().split("\n")
+        assert "ANTHROPIC_API_KEY=sk-secret-123" in lines
+        assert "OPENAI_API_KEY=sk-other-456" in lines
+        # Verify sorted order
+        assert lines[0] == "ANTHROPIC_API_KEY=sk-secret-123"
+        assert lines[1] == "OPENAI_API_KEY=sk-other-456"
+        # Verify permissions are 0600
+        file_stat = os.stat(env_file)
+        assert stat.S_IMODE(file_stat.st_mode) == 0o600
+
+    # Verify cleanup after with-block
+    assert not os.path.exists(env_file)
+
+
+def test_env_file_for_cleans_up_when_block_raises():
+    env = {"TOKEN": "abc"}
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with _env_file_for(env) as env_file:
+            assert env_file is not None
+            assert os.path.exists(env_file)
+            raise RuntimeError("boom")
+
+    # Temp file must be gone even after exception
+    assert not os.path.exists(env_file)
+
+
+def test_env_file_for_empty_dict_is_noop_yields_none():
+    with _env_file_for({}) as env_file:
+        assert env_file is None
+
+
+def test_env_file_for_rejects_newline_in_value():
+    env = {"KEY": "line1\nline2"}
+
+    with pytest.raises(AisboxError, match="newline"):
+        with _env_file_for(env):
+            pass
+
+
+def test_container_command_uses_env_file_instead_of_inline_e():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"SECRET": "abc", "TOKEN": "xyz"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file="/tmp/aisbox-env-XXXX",
+    )
+
+    # Should use --env-file, not -e KEY=VALUE
+    assert "--env-file" in command
+    assert "/tmp/aisbox-env-XXXX" in command
+    assert "SECRET=abc" not in command
+    assert "TOKEN=xyz" not in command
+    assert "-e" not in command
+
+
+def test_run_container_uses_env_file_not_inline_e():
+    runner = Mock()
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"ANTHROPIC_API_KEY": "sk-secret", "NOT_SECRET": "visible"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    run_container(
+        env,
+        agent,
+        "/tmp/config",
+        "run",
+        "hello",
+        runner,
+    )
+
+    command = runner.call_args.args[0]
+    # Must NOT contain secrets as -e args
+    assert "ANTHROPIC_API_KEY=sk-secret" not in command
+    assert "NOT_SECRET=visible" not in command
+    assert "-e" not in command
+    # Must use --env-file instead
+    assert "--env-file" in command
+    runner.assert_called_once()
+    _, kwargs = runner.call_args
+    assert kwargs["check"] is True
+
+
+def test_run_container_with_empty_env_no_leak_and_no_env_file():
+    runner = Mock()
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    run_container(
+        env,
+        agent,
+        "/tmp/config",
+        "run",
+        "hello",
+        runner,
+    )
+
+    command = runner.call_args.args[0]
+    assert "--env-file" not in command
+    assert "-e" not in command
+    runner.assert_called_once_with(command, check=True)
+
+
+def test_container_command_falls_back_to_inline_e_when_env_file_is_none():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"SECRET": "abc"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file=None,
+    )
+
+    # Backward compatible: uses -e KEY=VALUE
+    assert "SECRET=abc" in command
+    assert "--env-file" not in command
+
+
+def test_container_command_with_env_file_and_no_env_vars_skips_both():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file="/tmp/aisbox-env-XXXX",
+    )
+
+    # No env vars, so neither -e nor --env-file
+    assert "--env-file" not in command
+    assert "-e" not in command
