@@ -785,6 +785,14 @@ def test_env_file_for_empty_dict_is_noop_yields_none():
         assert env_file is None
 
 
+def test_env_file_for_rejects_newline_in_value():
+    env = {"KEY": "line1\nline2"}
+
+    with pytest.raises(AisboxError, match="newline"):
+        with _env_file_for(env):
+            pass
+
+
 def test_container_command_uses_env_file_instead_of_inline_e():
     env = Environment(
         name="demo1",

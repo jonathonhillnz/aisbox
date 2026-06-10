@@ -141,15 +141,30 @@ def _env_file_for(env: dict[str, str]) -> Iterator[str | None]:
         yield None
         return
 
+    # Validate values before writing — Docker's env-file format does not
+    # support newlines or comment-prefixed keys.
+    for key, value in env.items():
+        if "\n" in value:
+            raise AisboxError(
+                f"Environment variable {key!r} contains a newline character, "
+                f"which is not supported by Docker's --env-file format"
+            )
+
     tmp = None
     try:
         try:
-            tmp = tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding="utf-8",
-                delete=False,
-                prefix="aisbox-env-",
-            )
+            previous_umask = os.umask(0o177)
+            try:
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    delete=False,
+                    prefix="aisbox-env-",
+                )
+            finally:
+                os.umask(previous_umask)
+            # Double-check with chmod to be safe on platforms where umask
+            # doesn't fully control the mode.
             os.chmod(tmp.name, 0o600)
             for key in sorted(env):
                 tmp.write(f"{key}={env[key]}\n")
