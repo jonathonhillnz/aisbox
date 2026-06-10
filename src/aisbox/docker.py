@@ -143,17 +143,22 @@ def _env_file_for(env: dict[str, str]) -> Iterator[str | None]:
 
     tmp = None
     try:
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            delete=False,
-            prefix="aisbox-env-",
-        )
-        os.chmod(tmp.name, 0o600)
-        for key in sorted(env):
-            tmp.write(f"{key}={env[key]}\n")
-        tmp.close()
-        yield tmp.name
+        try:
+            tmp = tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                delete=False,
+                prefix="aisbox-env-",
+            )
+            os.chmod(tmp.name, 0o600)
+            for key in sorted(env):
+                tmp.write(f"{key}={env[key]}\n")
+            tmp.close()
+            yield tmp.name
+        except OSError as exc:
+            raise AisboxError(
+                f"Failed to create environment variable file: {exc}"
+            ) from exc
     finally:
         if tmp is not None:
             try:
