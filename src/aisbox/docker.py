@@ -170,6 +170,7 @@ def container_command(
     prompt: str | None = None,
     retained: bool = False,
     permission_policy: PermissionPolicy = "default",
+    env_file: str | None = None,
 ) -> list[str]:
     if retained and mode != "start":
         raise ValueError("Retained containers require start mode")
@@ -189,8 +190,12 @@ def container_command(
     command.extend(["-v", f"{config_source}:{agent.config_path}"])
     for mount in env.mounts:
         command.extend(["-v", f"{mount.source}:/workspace/{mount.alias}"])
-    for key, value in sorted(env.env.items()):
-        command.extend(["-e", f"{key}={value}"])
+    if env.env:
+        if env_file is not None:
+            command.extend(["--env-file", env_file])
+        else:
+            for key, value in sorted(env.env.items()):
+                command.extend(["-e", f"{key}={value}"])
     command.append(env.image)
     if mode == "run":
         try:

@@ -783,3 +783,81 @@ def test_env_file_for_cleans_up_when_block_raises():
 def test_env_file_for_empty_dict_is_noop_yields_none():
     with _env_file_for({}) as env_file:
         assert env_file is None
+
+
+def test_container_command_uses_env_file_instead_of_inline_e():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"SECRET": "abc", "TOKEN": "xyz"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file="/tmp/aisbox-env-XXXX",
+    )
+
+    # Should use --env-file, not -e KEY=VALUE
+    assert "--env-file" in command
+    assert "/tmp/aisbox-env-XXXX" in command
+    assert "SECRET=abc" not in command
+    assert "TOKEN=xyz" not in command
+    assert "-e" not in command
+
+
+def test_container_command_falls_back_to_inline_e_when_env_file_is_none():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"SECRET": "abc"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file=None,
+    )
+
+    # Backward compatible: uses -e KEY=VALUE
+    assert "SECRET=abc" in command
+    assert "--env-file" not in command
+
+
+def test_container_command_with_env_file_and_no_env_vars_skips_both():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "run",
+        "hello",
+        env_file="/tmp/aisbox-env-XXXX",
+    )
+
+    # No env vars, so neither -e nor --env-file
+    assert "--env-file" not in command
+    assert "-e" not in command
