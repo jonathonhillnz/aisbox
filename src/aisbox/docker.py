@@ -228,15 +228,17 @@ def run_container(
     retained: bool = False,
     permission_policy: PermissionPolicy = "default",
 ) -> None:
-    runner(
-        container_command(
-            env,
-            agent,
-            config_source,
-            mode,
-            prompt,
-            retained=retained,
-            permission_policy=permission_policy,
-        ),
-        check=True,
-    )
+    with _env_file_for(env.env) as env_file:
+        runner(
+            container_command(
+                env,
+                agent,
+                config_source,
+                mode,
+                prompt,
+                retained=retained,
+                permission_policy=permission_policy,
+                env_file=env_file,
+            ),
+            check=True,
+        )

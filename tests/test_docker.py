@@ -813,6 +813,68 @@ def test_container_command_uses_env_file_instead_of_inline_e():
     assert "-e" not in command
 
 
+def test_run_container_uses_env_file_not_inline_e():
+    runner = Mock()
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={"ANTHROPIC_API_KEY": "sk-secret", "NOT_SECRET": "visible"},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    run_container(
+        env,
+        agent,
+        "/tmp/config",
+        "run",
+        "hello",
+        runner,
+    )
+
+    command = runner.call_args.args[0]
+    # Must NOT contain secrets as -e args
+    assert "ANTHROPIC_API_KEY=sk-secret" not in command
+    assert "NOT_SECRET=visible" not in command
+    assert "-e" not in command
+    # Must use --env-file instead
+    assert "--env-file" in command
+    runner.assert_called_once()
+    _, kwargs = runner.call_args
+    assert kwargs["check"] is True
+
+
+def test_run_container_with_empty_env_no_leak_and_no_env_file():
+    runner = Mock()
+    agent = get_agent("claude")
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    run_container(
+        env,
+        agent,
+        "/tmp/config",
+        "run",
+        "hello",
+        runner,
+    )
+
+    command = runner.call_args.args[0]
+    assert "--env-file" not in command
+    assert "-e" not in command
+    runner.assert_called_once_with(command, check=True)
+
+
 def test_container_command_falls_back_to_inline_e_when_env_file_is_none():
     env = Environment(
         name="demo1",
