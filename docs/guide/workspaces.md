@@ -42,6 +42,17 @@ container run.
     With Docker's default outbound network access, agents can send mounted
     or supplied data over the network. Mount only trusted, necessary data.
 
+## Sensitive path warning
+
+For a newly supplied workspace or mount, `aisbox` resolves symlinks and warns
+when the path is a known credential directory, is inside one, or is an
+ancestor broad enough to contain one. Multiple risky inputs produce one
+consolidated warning and one confirmation prompt.
+
+The confirmation default is No. Pass `--yes` to explicitly acknowledge the
+risk in automation. Previously stored paths are not re-confirmed during later
+runs unless they are newly supplied again as an override.
+
 ## Temporary workspace and mount overrides
 
 Override the workspace or add mounts for a single runtime session without
@@ -77,7 +88,7 @@ mount.
 !!! note
     OpenCode may read project `CLAUDE.md` and `.claude/skills` files from the
     mounted workspace through its upstream compatibility behavior. aisbox does
-    not copy or mount host `~/.claude` state.
+    not automatically copy or mount host `~/.claude` state.
 
 ## What persists and what does not
 

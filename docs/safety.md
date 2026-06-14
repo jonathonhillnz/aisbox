@@ -20,11 +20,12 @@ files with mode `0600`, and tightens those permissions on subsequent writes.
 Protect the state root as sensitive data — it contains unencrypted
 credentials.
 
-## Host configuration not shared
+## Host configuration not shared automatically
 
-Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential
-directories are **not** copied or mounted into containers. Each agent starts
-with its own configuration directory under `<state-root>/<name>/config`.
+Host credential and agent configuration directories are never mounted
+automatically. Each agent starts with its own configuration directory under
+`<state-root>/<name>/config`. Users can explicitly select sensitive host paths
+as workspaces or mounts only after acknowledging the warning described below.
 
 !!! note
     OpenCode may read project `CLAUDE.md` and `.claude/skills` files from the
@@ -77,6 +78,28 @@ anyone with read access to the state root can read the credentials.
 - Workspaces and additional mounts are writable.
 - Agents have read/write access to `/workspace` and all mount aliases.
 - Mount only directories you trust the agent to read and modify.
+
+`aisbox` warns when a newly supplied path equals, is inside, or is an ancestor
+of any of these paths:
+
+- `~/.ssh`
+- `~/.gnupg`
+- `~/.aws`
+- `~/.azure`
+- `~/.config/gcloud`
+- `~/.kube`
+- `~/.docker`
+- `~/.claude`
+- `~/.codex`
+- `~/.config/opencode`
+- `~/.local/share/opencode`
+- `~/.local/state/opencode`
+
+Paths are resolved before comparison, including symlinks. The ancestor rule
+means broad paths such as the home directory and `/` also trigger the warning.
+The confirmation default is No; `--yes` explicitly acknowledges it for
+automation. Sensitive host paths are never mounted automatically. This warning
+reduces accidental exposure but does not make a sensitive mount safe.
 
 ## What aisbox does not provide
 

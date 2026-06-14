@@ -18,8 +18,9 @@ workspace and additional directory you mount.
 
 - The configured state root (`<state-root>`) is `~/.aisbox` by default and is
   overridden by `AISBOX_HOME`.
-- Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential
-  directories are not copied or mounted.
+- `aisbox` never automatically copies or mounts host credential state,
+  including `~/.claude`, `~/.codex`, and `~/.ssh`. Explicit sensitive
+  workspaces or mounts are writable and require confirmation or `--yes`.
 - Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
 - Runtime containers are disposable by default. `start --keep` and `attach`
   explicitly retain one interactive container per environment until
@@ -221,6 +222,12 @@ The workspace and additional mounts are writable. Additional mounts appear at
 Docker's default outbound network access, agents can send mounted or supplied
 data over the network; mount only trusted, necessary data.
 
+When a newly supplied workspace or mount is a known credential directory,
+inside one, or broad enough to contain one, `aisbox` displays the matching
+paths and asks for confirmation. The default is No. Use `--yes` only when you
+intend to give the agent read/write access to that sensitive host data.
+Previously stored paths are not re-confirmed on every run.
+
 Agent configuration persists under `<state-root>/<name>/config`. `aisbox run`,
 plain `aisbox start`, and `aisbox shell` use `docker run --rm`; their containers
 are removed after the container exits. Retained sessions are opt-in. Their
@@ -229,7 +236,7 @@ but it is not durable persistence across container removal.
 
 OpenCode may read project `CLAUDE.md` and `.claude/skills` files from the
 mounted workspace through its upstream compatibility behavior. aisbox does not
-copy or mount host `~/.claude` state.
+automatically copy or mount host `~/.claude` state.
 
 ## Retained Sessions
 

@@ -423,7 +423,8 @@ def test_pull_request_template_covers_review_requirements():
         "exact commands",
         "results",
         "Documentation",
-        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential directories are not copied or mounted",
+        "Host credential directories are never mounted automatically",
+        "Explicit sensitive host paths require acknowledgment",
         "additional host directory mounts",
         "mount",
         "secrets",
@@ -454,10 +455,15 @@ def test_readme_states_preview_and_safety_contract():
     ]:
         assert text in readme
 
-    assert (
-        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and "
-        "credential directories are not copied or mounted."
-    ) in normalized
+    for text in [
+        "never automatically copies or mounts",
+        "`~/.claude`",
+        "`~/.codex`",
+        "`~/.ssh`",
+        "`--yes`",
+        "read/write access",
+    ]:
+        assert text in normalized
 
     for text in [
         "Runtime containers are disposable by default",
@@ -702,7 +708,10 @@ def test_readme_documents_opencode_project_compatibility_without_host_access():
         "from the mounted workspace through its upstream compatibility behavior"
         in normalized
     )
-    assert "aisbox does not copy or mount host `~/.claude` state." in normalized
+    assert (
+        "aisbox does not automatically copy or mount host `~/.claude` state."
+        in normalized
+    )
 
 
 def test_agents_guidance_matches_retained_container_safety_contract():
@@ -711,7 +720,8 @@ def test_agents_guidance_matches_retained_container_safety_contract():
 
     for text in [
         "Environment state is stored under `~/.aisbox/<name>` by default",
-        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential directories must not be copied or mounted.",
+        "Host credential directories must never be copied or mounted automatically.",
+        "Explicit sensitive workspaces and mounts require acknowledgment.",
         "Docker is invoked as the current user.",
         "Do not add automatic `sudo` behavior.",
         "Runtime containers are disposable by default.",
@@ -721,6 +731,46 @@ def test_agents_guidance_matches_retained_container_safety_contract():
         "explicit bind mounts and stored environment config",
     ]:
         assert text in normalized
+
+
+def test_sensitive_path_warning_is_documented_consistently():
+    safety = " ".join(read_text("docs/safety.md").split())
+    workspaces = " ".join(read_text("docs/guide/workspaces.md").split())
+    commands = " ".join(read_text("docs/reference/commands.md").split())
+
+    for text in [
+        "`~/.ssh`",
+        "`~/.gnupg`",
+        "`~/.aws`",
+        "`~/.azure`",
+        "`~/.config/gcloud`",
+        "`~/.kube`",
+        "`~/.docker`",
+        "`~/.claude`",
+        "`~/.codex`",
+        "`~/.config/opencode`",
+        "`~/.local/share/opencode`",
+        "`~/.local/state/opencode`",
+        "ancestor",
+        "`--yes`",
+        "default is No",
+        "never mounted automatically",
+    ]:
+        assert text in safety
+
+    for text in [
+        "Sensitive path warning",
+        "one consolidated warning",
+        "newly supplied",
+        "Previously stored paths are not re-confirmed",
+    ]:
+        assert text in workspaces
+
+    for command in ["create", "mount", "run", "start", "attach"]:
+        section = commands.split(f"## `aisbox {command}`", 1)[1]
+        section = section.split("## `aisbox ", 1)[0]
+        assert "`--yes`" in section
+        assert "Acknowledge sensitive workspace or mount paths." in section
 
 
 def test_readme_documents_interactive_environment_values():

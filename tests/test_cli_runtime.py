@@ -825,6 +825,140 @@ def test_run_rejects_invalid_permission_policy_after_temporary_mount(
     assert "Traceback" not in result.stdout
 
 
+@pytest.mark.parametrize(
+    "trailing_args",
+    [
+        ["--yes", "--", "hello"],
+        ["--permission-policy", "auto", "--", "hello"],
+        ["--", "hello"],
+        ["--mount", "second", "second-alias", "--", "hello"],
+    ],
+    ids=["before-yes", "before-policy", "before-separator", "before-repeat"],
+)
+def test_run_rejects_temporary_mount_without_alias_before_option_boundary(
+    tmp_path, monkeypatch, trailing_args
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.run_environment", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            *trailing_args,
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--mount requires SOURCE ALIAS" in result.stderr
+    assert "Traceback" not in result.stderr
+    runner_mock.assert_not_called()
+
+
+def test_run_parses_yes_and_permission_policy_after_temporary_mount(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.run_environment", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--yes",
+            "--permission-policy",
+            "auto",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 0
+    runner_mock.assert_called_once_with(
+        "demo1",
+        "run",
+        "hello",
+        workspace=None,
+        mounts=[(str(source), "src")],
+        permission_policy="auto",
+    )
+
+
+def test_run_rejects_later_repeated_mount_without_alias(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.run_environment", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(first),
+            "first",
+            "--mount",
+            str(second),
+            "--yes",
+            "--",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--mount requires SOURCE ALIAS" in result.stderr
+    runner_mock.assert_not_called()
+
+
+def test_run_rejects_permission_policy_without_value_after_temporary_mount(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    source = tmp_path / "source"
+    source.mkdir()
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.cli.run_environment", runner_mock)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "-n",
+            "demo1",
+            "--mount",
+            str(source),
+            "src",
+            "--permission-policy",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "--permission-policy requires VALUE" in result.stderr
+    runner_mock.assert_not_called()
+
+
 def test_run_prompt_can_start_with_mount_token_after_separator(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     runner_mock = Mock()

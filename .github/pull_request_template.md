@@ -17,7 +17,7 @@ Describe documentation changes, or explain why none are needed.
 
 ## Safety Checklist
 
-- [ ] Host `~/.claude`, `~/.codex`, and OpenCode user configuration and credential directories are not copied or mounted.
+- [ ] Host credential directories are never mounted automatically. Explicit sensitive host paths require acknowledgment.
 - [ ] This change does not broaden additional host directory mounts.
 - [ ] This change does not print or commit secrets.
 - [ ] This change does not add automatic `sudo` behavior for Docker.

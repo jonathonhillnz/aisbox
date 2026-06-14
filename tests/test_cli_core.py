@@ -45,6 +45,16 @@ def test_environment_options_have_help(args, help_text):
     assert help_text in normalized
 
 
+@pytest.mark.parametrize("command", ["create", "mount", "run", "start", "attach"])
+def test_sensitive_path_commands_have_yes_help(command):
+    result = runner.invoke(app, [command, "--help"], terminal_width=120)
+    normalized = normalize_help_output(result.stdout)
+
+    assert result.exit_code == 0
+    assert "--yes" in normalized
+    assert "Acknowledge sensitive workspace or mount paths." in normalized
+
+
 def test_list_empty_environment_home(tmp_path, monkeypatch):
     monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
 
@@ -314,10 +324,7 @@ def test_readme_documents_primary_commands():
     assert commands.index("aisbox kill -n demo1") < commands.index(
         "aisbox delete -n demo1 --force"
     )
-    assert (
-        "Host `~/.claude`, `~/.codex`, and OpenCode user configuration and "
-        "credential directories are not copied or mounted."
-        in normalized
-    )
+    assert "`aisbox` never automatically copies or mounts host credential state" in normalized
+    assert "require confirmation or `--yes`" in normalized
     assert "does not run Docker through `sudo`" in readme
     assert "AISBOX_HOME" in readme

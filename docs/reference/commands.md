@@ -15,7 +15,7 @@ This page documents every `aisbox` command with its options. Run
 Create a new environment.
 
 ```bash
-aisbox create -n <name> -a <agent> [--workspace <path>] [-e KEY=VALUE ...]
+aisbox create -n <name> -a <agent> [--workspace <path>] [-e KEY=VALUE ...] [--yes]
 ```
 
 | Option | Required | Description |
@@ -24,6 +24,7 @@ aisbox create -n <name> -a <agent> [--workspace <path>] [-e KEY=VALUE ...]
 | `-a`, `--agent` | Yes | Agent alias. |
 | `--workspace` | No | Path to an existing directory to use as workspace. |
 | `-e`, `--env` | No | Set `KEY=VALUE`; an empty value prompts without echo. Repeatable. |
+| `--yes` | No | Acknowledge sensitive workspace or mount paths. |
 
 Example:
 
@@ -56,13 +57,17 @@ aisbox inspect [-n <name>]
 Add a persistent directory mount to an environment.
 
 ```bash
-aisbox mount [-n <name>] <source> <alias>
+aisbox mount [-n <name>] <source> <alias> [--yes]
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `source` | Path to an existing host directory. |
 | `alias` | Mount name; appears at `/workspace/<alias>`. |
+
+| Option | Description |
+|--------|-------------|
+| `--yes` | Acknowledge sensitive workspace or mount paths. |
 
 Example:
 
@@ -128,7 +133,7 @@ aisbox env unset -n demo -e LOG_LEVEL -e FEATURE_FLAG
 Run a one-shot prompt in a disposable container.
 
 ```bash
-aisbox run [-n <name>] [--workspace <path>] [--mount <source> <alias> ...] -- <prompt>
+aisbox run [-n <name>] [--workspace <path>] [--mount <source> <alias> ...] [--yes] -- <prompt>
 ```
 
 | Option | Description |
@@ -136,6 +141,7 @@ aisbox run [-n <name>] [--workspace <path>] [--mount <source> <alias> ...] -- <p
 | `-n`, `--name` | Environment name. |
 | `--workspace` | Temporary workspace override for this run. |
 | `--mount` | Temporary mount override (`SOURCE ALIAS`). Repeatable. |
+| `--yes` | Acknowledge sensitive workspace or mount paths. |
 
 Everything after `--` is joined into the prompt string. The container is
 removed on exit.
@@ -153,7 +159,7 @@ aisbox run -n demo --mount /host/data data -- "analyze the data"
 Start an interactive agent session.
 
 ```bash
-aisbox start [-n <name>] [--keep] [--workspace <path>] [--mount <source> <alias> ...]
+aisbox start [-n <name>] [--keep] [--workspace <path>] [--mount <source> <alias> ...] [--yes]
 ```
 
 | Option | Description |
@@ -162,6 +168,7 @@ aisbox start [-n <name>] [--keep] [--workspace <path>] [--mount <source> <alias>
 | `--keep` | Retain the container for later attachment. |
 | `--workspace` | Temporary workspace override. |
 | `--mount` | Temporary mount override (`SOURCE ALIAS`). Repeatable. |
+| `--yes` | Acknowledge sensitive workspace or mount paths. |
 
 Without `--keep`, the container is disposable (`--rm`). With `--keep`, the
 container is retained for later `attach`.
@@ -179,7 +186,7 @@ aisbox start -n demo --workspace /tmp/other
 Attach to a retained session, creating one if needed.
 
 ```bash
-aisbox attach [-n <name>] [--workspace <path>] [--mount <source> <alias> ...]
+aisbox attach [-n <name>] [--workspace <path>] [--mount <source> <alias> ...] [--yes]
 ```
 
 | Option | Description |
@@ -187,6 +194,7 @@ aisbox attach [-n <name>] [--workspace <path>] [--mount <source> <alias> ...]
 | `-n`, `--name` | Environment name. |
 | `--workspace` | Temporary workspace override. |
 | `--mount` | Temporary mount override (`SOURCE ALIAS`). Repeatable. |
+| `--yes` | Acknowledge sensitive workspace or mount paths. |
 
 Fails with overrides if a retained session is already running.
 

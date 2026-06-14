@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal, Optional, cast
 
 import typer
+from typer.core import TyperCommand
 
 from aisbox import __version__
 from aisbox.commands import (
@@ -25,6 +27,7 @@ from aisbox.commands import (
     unset_env_vars,
 )
 from aisbox.errors import AisboxError
+from aisbox.safety import find_sensitive_path_matches
 from aisbox.validation import parse_env_assignment
 
 
@@ -38,6 +41,13 @@ RETAINED_DETACH_GUIDANCE = (
     "Detach without stopping: Ctrl-p Ctrl-q. "
     "Ctrl-c may stop the agent and session."
 )
+RAW_ARGS_META_KEY = "aisbox_raw_args"
+
+
+class RawArgsTyperCommand(TyperCommand):
+    def parse_args(self, ctx: typer.Context, args: list[str]) -> list[str]:
+        ctx.meta[RAW_ARGS_META_KEY] = list(args)
+        return super().parse_args(ctx, args)
 
 
 def version_callback(value: bool) -> None:
@@ -74,6 +84,80 @@ def resolve_env_assignments(assignments: list[str]) -> list[str]:
     return resolved
 
 
+def supplied_host_paths(
+    workspace: str | None,
+    mounts: list[tuple[str, str]],
+) -> list[tuple[str, str]]:
+    requested_paths: list[tuple[str, str]] = []
+    if workspace is not None:
+        requested_paths.append(("workspace", workspace))
+    requested_paths.extend(
+        (f"mount {alias}", source) for source, alias in mounts
+    )
+    return requested_paths
+
+
+def confirm_sensitive_path_access(
+    requested_paths: list[tuple[str, str]],
+    *,
+    yes: bool,
+) -> None:
+    findings: list[tuple[str, Path, tuple[Path, ...]]] = []
+    for label, raw_path in requested_paths:
+        resolved_path = Path(raw_path).expanduser().resolve()
+        matches = find_sensitive_path_matches(resolved_path)
+        if matches:
+            findings.append((label, resolved_path, matches))
+
+    if not findings:
+        return
+
+    typer.echo(
+        "Warning: requested host paths overlap sensitive locations:",
+        err=True,
+    )
+    for label, resolved_path, matches in findings:
+        typer.echo(f"  {label}: {resolved_path}", err=True)
+        for match in matches:
+            typer.echo(f"    matched sensitive path: {match}", err=True)
+    typer.echo(
+        "The container will have read/write access to these paths, which may "
+        "expose credentials or other sensitive data.",
+        err=True,
+    )
+
+    if yes:
+        return
+    try:
+        confirmed = typer.confirm("Continue?", default=False, err=True)
+    except typer.Abort:
+        raise typer.Exit(code=1) from None
+    if not confirmed:
+        raise typer.Exit(code=1)
+
+
+def resolve_and_confirm_sensitive_path_access(
+    workspace: str | None,
+    mounts: list[tuple[str, str]],
+    *,
+    yes: bool,
+) -> tuple[str | None, list[tuple[str, str]]]:
+    resolved_workspace = (
+        str(Path(workspace).expanduser().resolve())
+        if workspace is not None
+        else None
+    )
+    resolved_mounts = [
+        (str(Path(source).expanduser().resolve()), alias)
+        for source, alias in mounts
+    ]
+    confirm_sensitive_path_access(
+        supplied_host_paths(resolved_workspace, resolved_mounts),
+        yes=yes,
+    )
+    return resolved_workspace, resolved_mounts
+
+
 def resolve_temporary_mounts(values: list[str]) -> list[tuple[str, str]]:
     if len(values) % 2 != 0:
         raise AisboxError("--mount requires SOURCE ALIAS")
@@ -86,9 +170,44 @@ def resolve_temporary_mounts(values: list[str]) -> list[tuple[str, str]]:
 def consume_temporary_mount_args(
     sources: list[str],
     args: list[str],
-) -> tuple[list[tuple[str, str]], Literal["default", "auto", "bypass"] | None, list[str]]:
+    *,
+    raw_args: list[str] | None = None,
+) -> tuple[
+    list[tuple[str, str]],
+    Literal["default", "auto", "bypass"] | None,
+    bool,
+    list[str],
+]:
+    if sources and raw_args is not None:
+        remaining = raw_args[raw_args.index("--mount") :]
+        mounts: list[tuple[str, str]] = []
+        permission_policy: Literal["default", "auto", "bypass"] | None = None
+        yes = False
+        while remaining:
+            token = remaining[0]
+            if token == "--":
+                return mounts, permission_policy, yes, remaining[1:]
+            if token == "--permission-policy":
+                if len(remaining) < 2:
+                    raise AisboxError("--permission-policy requires VALUE")
+                permission_policy = parse_permission_policy(remaining[1])
+                remaining = remaining[2:]
+                continue
+            if token == "--yes":
+                yes = True
+                remaining = remaining[1:]
+                continue
+            if token != "--mount":
+                return mounts, permission_policy, yes, remaining
+            if len(remaining) < 3 or remaining[2].startswith("-"):
+                raise AisboxError("--mount requires SOURCE ALIAS")
+            mounts.append((remaining[1], remaining[2]))
+            remaining = remaining[3:]
+        return mounts, permission_policy, yes, []
+
     values: list[str] = []
     permission_policy: Literal["default", "auto", "bypass"] | None = None
+    yes = False
     remaining = list(args)
     saw_mount_option = bool(sources)
     for source in sources:
@@ -97,12 +216,21 @@ def consume_temporary_mount_args(
         values.extend([source, remaining.pop(0)])
     while remaining:
         if remaining[0] == "--":
-            return resolve_temporary_mounts(values), permission_policy, remaining[1:]
+            return (
+                resolve_temporary_mounts(values),
+                permission_policy,
+                yes,
+                remaining[1:],
+            )
         if remaining[0] == "--permission-policy" and saw_mount_option:
             if len(remaining) < 2:
                 raise AisboxError("--permission-policy requires VALUE")
             permission_policy = parse_permission_policy(remaining[1])
             remaining = remaining[2:]
+            continue
+        if remaining[0] == "--yes" and saw_mount_option:
+            yes = True
+            remaining = remaining[1:]
             continue
         if remaining[0] != "--mount" or not saw_mount_option:
             break
@@ -110,7 +238,7 @@ def consume_temporary_mount_args(
             raise AisboxError("--mount requires SOURCE ALIAS")
         values.extend([remaining[1], remaining[2]])
         remaining = remaining[3:]
-    return resolve_temporary_mounts(values), permission_policy, remaining
+    return resolve_temporary_mounts(values), permission_policy, yes, remaining
 
 
 def parse_permission_policy(
@@ -149,8 +277,18 @@ def create(
         help="Set KEY=VALUE; an empty value prompts without echo.",
     ),
     workspace: str | None = typer.Option(None, "--workspace"),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Acknowledge sensitive workspace or mount paths.",
+    ),
 ) -> None:
     try:
+        workspace, _ = resolve_and_confirm_sensitive_path_access(
+            workspace,
+            [],
+            yes=yes,
+        )
         assignments = resolve_env_assignments(env)
         created = create_environment(name, agent, assignments, workspace)
     except AisboxError as exc:
@@ -210,10 +348,21 @@ def mount(
     name: str | None = typer.Option(None, "-n", "--name"),
     source: str = typer.Argument(...),
     alias: str = typer.Argument(...),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Acknowledge sensitive workspace or mount paths.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
     try:
-        created = add_mount(effective_name, source, alias)
+        _, resolved_mounts = resolve_and_confirm_sensitive_path_access(
+            None,
+            [(source, alias)],
+            yes=yes,
+        )
+        resolved_source, _ = resolved_mounts[0]
+        created = add_mount(effective_name, resolved_source, alias)
     except AisboxError as exc:
         handle_error(exc)
     typer.echo(f"Mounted {created.alias}")
@@ -273,6 +422,7 @@ def env_unset(
 
 @app.command(
     "run",
+    cls=RawArgsTyperCommand,
     context_settings={
         "allow_extra_args": True,
         "ignore_unknown_options": True,
@@ -295,14 +445,31 @@ def run(
         "--mount",
         help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Acknowledge sensitive workspace or mount paths.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
     try:
-        mounts, parsed_permission_policy, prompt_args = consume_temporary_mount_args(
-            mount_sources, ctx.args
+        (
+            mounts,
+            parsed_permission_policy,
+            parsed_yes,
+            prompt_args,
+        ) = consume_temporary_mount_args(
+            mount_sources,
+            ctx.args,
+            raw_args=ctx.meta.get(RAW_ARGS_META_KEY),
         )
         effective_permission_policy = parsed_permission_policy or permission_policy
         prompt = " ".join(prompt_args) if prompt_args else None
+        workspace, mounts = resolve_and_confirm_sensitive_path_access(
+            workspace,
+            mounts,
+            yes=yes or parsed_yes,
+        )
         run_environment(
             effective_name,
             "run",
@@ -317,6 +484,7 @@ def run(
 
 @app.command(
     "start",
+    cls=RawArgsTyperCommand,
     help="Start an interactive agent.",
     context_settings={"allow_extra_args": True},
 )
@@ -334,18 +502,35 @@ def start(
         "--mount",
         help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Acknowledge sensitive workspace or mount paths.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
-    if keep:
-        typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        mounts, parsed_permission_policy, remaining_args = consume_temporary_mount_args(
-            mount_sources, ctx.args
+        (
+            mounts,
+            parsed_permission_policy,
+            parsed_yes,
+            remaining_args,
+        ) = consume_temporary_mount_args(
+            mount_sources,
+            ctx.args,
+            raw_args=ctx.meta.get(RAW_ARGS_META_KEY),
         )
         if parsed_permission_policy is not None:
             raise AisboxError("Unexpected argument: --permission-policy")
         if remaining_args:
             raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
+        workspace, mounts = resolve_and_confirm_sensitive_path_access(
+            workspace,
+            mounts,
+            yes=yes or parsed_yes,
+        )
+        if keep:
+            typer.echo(RETAINED_DETACH_GUIDANCE)
         start_environment(
             effective_name,
             keep,
@@ -358,6 +543,7 @@ def start(
 
 @app.command(
     "attach",
+    cls=RawArgsTyperCommand,
     help="Attach to a retained agent session, starting one when needed.",
     context_settings={"allow_extra_args": True},
 )
@@ -370,17 +556,34 @@ def attach(
         "--mount",
         help="Temporarily mount SOURCE at ALIAS; repeat for multiple mounts.",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Acknowledge sensitive workspace or mount paths.",
+    ),
 ) -> None:
     effective_name = effective_environment_name(name)
-    typer.echo(RETAINED_DETACH_GUIDANCE)
     try:
-        mounts, parsed_permission_policy, remaining_args = consume_temporary_mount_args(
-            mount_sources, ctx.args
+        (
+            mounts,
+            parsed_permission_policy,
+            parsed_yes,
+            remaining_args,
+        ) = consume_temporary_mount_args(
+            mount_sources,
+            ctx.args,
+            raw_args=ctx.meta.get(RAW_ARGS_META_KEY),
         )
         if parsed_permission_policy is not None:
             raise AisboxError("Unexpected argument: --permission-policy")
         if remaining_args:
             raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
+        workspace, mounts = resolve_and_confirm_sensitive_path_access(
+            workspace,
+            mounts,
+            yes=yes or parsed_yes,
+        )
+        typer.echo(RETAINED_DETACH_GUIDANCE)
         attach_environment(effective_name, workspace=workspace, mounts=mounts)
     except AisboxError as exc:
         handle_error(exc)
