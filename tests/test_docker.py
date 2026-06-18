@@ -178,6 +178,28 @@ def test_container_command_runs_claude_with_auto_permission_policy():
     assert command[-4:] == ["-p", "--permission-mode", "auto", "hello"]
 
 
+def test_container_command_starts_claude_with_auto_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "start",
+        permission_policy="auto",
+    )
+
+    assert command[-3:] == ["claude", "--permission-mode", "auto"]
+
+
 def test_container_command_runs_claude_with_bypass_permission_policy():
     env = Environment(
         name="demo1",
@@ -199,6 +221,28 @@ def test_container_command_runs_claude_with_bypass_permission_policy():
     )
 
     assert command[-3:] == ["-p", "--dangerously-skip-permissions", "hello"]
+
+
+def test_container_command_starts_claude_with_bypass_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="claude",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/claude:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("claude"),
+        "/tmp/config",
+        "start",
+        permission_policy="bypass",
+    )
+
+    assert command[-2:] == ["claude", "--dangerously-skip-permissions"]
 
 
 def test_container_command_runs_codex_with_auto_permission_policy():
@@ -228,6 +272,34 @@ def test_container_command_runs_codex_with_auto_permission_policy():
         "--sandbox",
         "workspace-write",
         "hello",
+    ]
+
+
+def test_container_command_starts_codex_with_auto_permission_policy():
+    env = Environment(
+        name="demo1",
+        agent="codex",
+        env={},
+        workspace="/tmp/workspace",
+        mounts=[],
+        image="aisbox/codex:latest",
+        created_at="2026-06-05T00:00:00Z",
+    )
+
+    command = container_command(
+        env,
+        get_agent("codex"),
+        "/tmp/config",
+        "start",
+        permission_policy="auto",
+    )
+
+    assert command[-5:] == [
+        "codex",
+        "--ask-for-approval",
+        "never",
+        "--sandbox",
+        "workspace-write",
     ]
 
 
@@ -274,6 +346,18 @@ def test_container_command_runs_opencode_with_auto_permission_policy():
         "--dangerously-skip-permissions",
         "hello",
     ]
+
+
+def test_container_command_starts_opencode_with_auto_permission_policy():
+    command = container_command(
+        opencode_environment(),
+        get_agent("opencode"),
+        "/tmp/config",
+        "start",
+        permission_policy="auto",
+    )
+
+    assert command[-2:] == ["opencode", "--dangerously-skip-permissions"]
 
 
 def test_container_command_runs_opencode_with_bypass_permission_policy():

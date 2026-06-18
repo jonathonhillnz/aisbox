@@ -255,7 +255,11 @@ def run_environment(
     env = _runtime_environment(store.load(name), workspace, mounts)
     agent = get_agent(env.agent)
     config_source = str(store.config_dir(env.name))
-    run_kwargs = {"permission_policy": permission_policy} if mode == "run" else {}
+    run_kwargs = (
+        {"permission_policy": permission_policy}
+        if permission_policy != "default"
+        else {}
+    )
     try:
         run_container(
             env,
@@ -404,15 +408,19 @@ def _run_retained(
     *,
     workspace: str | None = None,
     mounts: list[tuple[str, str]] | None = None,
+    permission_policy: PermissionPolicy = "default",
 ) -> None:
     runtime_env = _runtime_environment(env, workspace, mounts)
     agent = get_agent(env.agent)
+    run_kwargs = {"retained": True}
+    if permission_policy != "default":
+        run_kwargs["permission_policy"] = permission_policy
     run_container(
         runtime_env,
         agent,
         str(store.config_dir(env.name)),
         "start",
-        retained=True,
+        **run_kwargs,
     )
 
 
@@ -422,6 +430,7 @@ def _ensure_retained_session(
     *,
     workspace: str | None = None,
     mounts: list[tuple[str, str]] | None = None,
+    permission_policy: PermissionPolicy = "default",
 ) -> None:
     store = store or EnvironmentStore()
     with _lifecycle_lock(name, store) as validated_name:
@@ -429,8 +438,20 @@ def _ensure_retained_session(
         try:
             container = _inspect_retained(env)
             if container is None:
-                _run_retained(env, store, workspace=workspace, mounts=mounts)
+                _run_retained(
+                    env,
+                    store,
+                    workspace=workspace,
+                    mounts=mounts,
+                    permission_policy=permission_policy,
+                )
             elif container.status == "running":
+                if permission_policy != "default":
+                    raise AisboxError(
+                        f"Environment {env.name} already has a retained session; "
+                        f"run 'aisbox kill -n {env.name}' before starting one "
+                        "with a different permission policy"
+                    )
                 if _has_runtime_overrides(workspace, mounts):
                     raise AisboxError(
                         f"Environment {env.name} already has a retained session; "
@@ -441,7 +462,13 @@ def _ensure_retained_session(
             else:
                 _runtime_environment(env, workspace, mounts)
                 remove_container(container.container_id)
-                _run_retained(env, store, workspace=workspace, mounts=mounts)
+                _run_retained(
+                    env,
+                    store,
+                    workspace=workspace,
+                    mounts=mounts,
+                    permission_policy=permission_policy,
+                )
         except AisboxError:
             raise
         except FileNotFoundError as exc:
@@ -464,11 +491,25 @@ def start_environment(
     *,
     workspace: str | None = None,
     mounts: list[tuple[str, str]] | None = None,
+    permission_policy: PermissionPolicy = "default",
 ) -> None:
     if keep:
-        _ensure_retained_session(name, store, workspace=workspace, mounts=mounts)
+        _ensure_retained_session(
+            name,
+            store,
+            workspace=workspace,
+            mounts=mounts,
+            permission_policy=permission_policy,
+        )
         return
-    run_environment(name, "start", store=store, workspace=workspace, mounts=mounts)
+    run_environment(
+        name,
+        "start",
+        store=store,
+        workspace=workspace,
+        mounts=mounts,
+        permission_policy=permission_policy,
+    )
 
 
 def attach_environment(

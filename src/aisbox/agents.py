@@ -45,6 +45,11 @@ AGENTS = {
             "bypass": ["claude", "-p", "--dangerously-skip-permissions"],
         },
         attach_command=["claude"],
+        start_permission_commands={
+            "default": ["claude"],
+            "auto": ["claude", "--permission-mode", "auto"],
+            "bypass": ["claude", "--dangerously-skip-permissions"],
+        },
     ),
     "codex": AgentDefinition(
         name="codex",
@@ -68,6 +73,17 @@ AGENTS = {
             "bypass": ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox"],
         },
         attach_command=["codex"],
+        start_permission_commands={
+            "default": ["codex"],
+            "auto": [
+                "codex",
+                "--ask-for-approval",
+                "never",
+                "--sandbox",
+                "workspace-write",
+            ],
+            "bypass": ["codex", "--dangerously-bypass-approvals-and-sandbox"],
+        },
     ),
     "opencode": AgentDefinition(
         name="opencode",
@@ -84,6 +100,11 @@ AGENTS = {
             "bypass": ["opencode", "run", "--dangerously-skip-permissions"],
         },
         attach_command=["opencode"],
+        start_permission_commands={
+            "default": ["opencode"],
+            "auto": ["opencode", "--dangerously-skip-permissions"],
+            "bypass": ["opencode", "--dangerously-skip-permissions"],
+        },
     ),
 }
 

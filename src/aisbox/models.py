@@ -33,6 +33,9 @@ class AgentDefinition:
     run_command: list[str]
     run_permission_commands: dict[PermissionPolicy, list[str]]
     attach_command: list[str]
+    start_permission_commands: dict[PermissionPolicy, list[str]] = field(
+        default_factory=dict
+    )
     shell_command: list[str] = field(default_factory=lambda: ["/bin/bash"])
 
 

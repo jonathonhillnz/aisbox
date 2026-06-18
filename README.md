@@ -110,21 +110,23 @@ explicitly inside the environment shell, for example with `aisbox shell -n demo1
 `ssh-keygen`, and `gh auth login`. Host credential directories are not copied or
 mounted automatically.
 
-## Run Permission Policies
+## Permission Policies
 
-`aisbox run` supports `--permission-policy default|auto|bypass` to choose how
-agent-level permissions are configured for a disposable run.
+`aisbox run` and `aisbox start` support
+`--permission-policy default|auto|bypass` to choose how agent-level permissions
+are configured for a runtime session.
 
 `default` keeps the agent's default approval behavior. Use it when you want the
 upstream agent CLI to decide whether to ask before writes, commands, or other
 actions.
 
-`auto` is recommended for non-interactive write-capable runs, such as CI-style
-delegation where the agent should edit files inside the selected workspace
-without stopping for approval prompts:
+`auto` is recommended when the agent should edit files inside the selected
+workspace without stopping for approval prompts, including CI-style
+non-interactive runs:
 
 ```bash
 aisbox run --permission-policy auto -- "update the tests"
+aisbox start --permission-policy auto
 ```
 
 `bypass` disables agent-level approval prompts and may also disable the
@@ -133,6 +135,7 @@ containers with explicit workspace and mount choices:
 
 ```bash
 aisbox run --permission-policy bypass -- "prototype the change"
+aisbox start --permission-policy bypass
 ```
 
 Policy mappings are agent-specific:
@@ -142,6 +145,10 @@ Policy mappings are agent-specific:
 | Claude Code | `--permission-mode auto` | `--dangerously-skip-permissions` |
 | Codex CLI | `--ask-for-approval never --sandbox workspace-write` | `--dangerously-bypass-approvals-and-sandbox` |
 | OpenCode | maps to `--dangerously-skip-permissions` | maps to `--dangerously-skip-permissions` |
+
+For `aisbox start --keep`, the permission policy is applied when the retained
+container is created. Use `aisbox kill` before starting an existing retained
+session with a different non-default policy.
 
 ## Authentication
 
@@ -296,6 +303,7 @@ aisbox run -n demo1 -- "summarize this repository"
 aisbox run -n demo1 --workspace /path/to/temp/workspace "prompt"
 aisbox run -n demo1 --permission-policy auto -- "update the tests"
 aisbox start -n demo1
+aisbox start -n demo1 --permission-policy auto
 aisbox start -n demo1 --mount /path/to/dir dir
 aisbox start -n demo1 --keep
 aisbox attach -n demo1

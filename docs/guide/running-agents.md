@@ -50,6 +50,13 @@ This attaches your terminal to the agent's interactive command (`claude`,
 `codex`, or `opencode`). The container is disposable — it is removed when you
 exit.
 
+Use `--permission-policy default|auto|bypass` to choose the selected agent's
+approval behavior for the interactive session:
+
+```bash
+aisbox start -n <name> --permission-policy auto
+```
+
 Temporary overrides are supported:
 
 ```bash

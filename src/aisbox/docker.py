@@ -229,7 +229,17 @@ def container_command(
         if prompt is not None:
             command.append(prompt)
     elif mode == "start":
-        command.extend(agent.attach_command)
+        try:
+            start_command = agent.start_permission_commands[permission_policy]
+        except KeyError as exc:
+            if permission_policy == "default":
+                start_command = agent.attach_command
+            else:
+                raise AisboxError(
+                    f"Permission policy '{permission_policy}' is not supported "
+                    f"for agent: {agent.name}"
+                ) from exc
+        command.extend(start_command)
     elif mode == "shell":
         command.extend(agent.shell_command)
     else:

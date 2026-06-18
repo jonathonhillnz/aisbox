@@ -497,6 +497,13 @@ def start(
         help="Keep one retained session for later attachment.",
     ),
     workspace: str | None = typer.Option(None, "--workspace"),
+    permission_policy: Literal["default", "auto", "bypass"] = typer.Option(
+        "default",
+        "--permission-policy",
+        help="Agent permission policy for this start: default, auto, or bypass.",
+        metavar="default|auto|bypass",
+        parser=parse_permission_policy,
+    ),
     mount_sources: list[str] = typer.Option(
         [],
         "--mount",
@@ -520,10 +527,9 @@ def start(
             ctx.args,
             raw_args=ctx.meta.get(RAW_ARGS_META_KEY),
         )
-        if parsed_permission_policy is not None:
-            raise AisboxError("Unexpected argument: --permission-policy")
         if remaining_args:
             raise AisboxError(f"Unexpected argument: {remaining_args[0]}")
+        effective_permission_policy = parsed_permission_policy or permission_policy
         workspace, mounts = resolve_and_confirm_sensitive_path_access(
             workspace,
             mounts,
@@ -531,11 +537,13 @@ def start(
         )
         if keep:
             typer.echo(RETAINED_DETACH_GUIDANCE)
+        start_kwargs = {"workspace": workspace, "mounts": mounts}
+        if effective_permission_policy != "default":
+            start_kwargs["permission_policy"] = effective_permission_policy
         start_environment(
             effective_name,
             keep,
-            workspace=workspace,
-            mounts=mounts,
+            **start_kwargs,
         )
     except AisboxError as exc:
         handle_error(exc)

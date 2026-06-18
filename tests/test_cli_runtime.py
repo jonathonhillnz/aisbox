@@ -245,6 +245,19 @@ def test_start_environment_without_keep_runs_disposable_start(tmp_path, monkeypa
     assert run_mock.call_args.kwargs == {}
 
 
+def test_start_environment_passes_permission_policy_to_disposable_start(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    run_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+
+    start_environment("demo1", keep=False, permission_policy="auto")
+
+    assert run_mock.call_args.args[3] == "start"
+    assert run_mock.call_args.kwargs == {"permission_policy": "auto"}
+
+
 def test_retained_start_creates_missing_session(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
@@ -255,6 +268,40 @@ def test_retained_start_creates_missing_session(tmp_path, monkeypatch):
 
     assert run_mock.call_args.args[3] == "start"
     assert run_mock.call_args.kwargs == {"retained": True}
+
+
+def test_retained_start_passes_permission_policy_when_creating_session(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    monkeypatch.setattr("aisbox.commands.inspect_container", lambda name: None)
+    run_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", run_mock)
+
+    start_environment("demo1", keep=True, permission_policy="auto")
+
+    assert run_mock.call_args.args[3] == "start"
+    assert run_mock.call_args.kwargs == {
+        "retained": True,
+        "permission_policy": "auto",
+    }
+
+
+def test_retained_start_rejects_non_default_permission_policy_for_running_session(
+    tmp_path, monkeypatch
+):
+    setup_env(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "aisbox.commands.inspect_container",
+        lambda name: managed_container(status="running"),
+    )
+    attach_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.attach_container", attach_mock)
+
+    with pytest.raises(AisboxError, match="already has a retained session"):
+        start_environment("demo1", keep=True, permission_policy="auto")
+
+    attach_mock.assert_not_called()
 
 
 def test_retained_start_applies_temporary_overrides_when_creating_session(
@@ -284,6 +331,17 @@ def test_retained_start_applies_temporary_overrides_when_creating_session(
     assert stored_env.mounts == []
     assert run_mock.call_args.args[3] == "start"
     assert run_mock.call_args.kwargs == {"retained": True}
+
+
+def test_start_passes_permission_policy_to_container(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    runner_mock = Mock()
+    monkeypatch.setattr("aisbox.commands.run_container", runner_mock)
+
+    result = runner.invoke(app, ["start", "-n", "demo1", "--permission-policy", "auto"])
+
+    assert result.exit_code == 0
+    assert runner_mock.call_args.kwargs["permission_policy"] == "auto"
 
 
 def test_attach_joins_running_retained_session(tmp_path, monkeypatch):
@@ -1065,9 +1123,8 @@ def test_attach_passes_temporary_mounts_to_lifecycle(tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.parametrize("command", ["start", "attach"])
-def test_interactive_commands_reject_permission_policy_after_temporary_mount(
-    tmp_path, monkeypatch, command
+def test_attach_rejects_permission_policy_after_temporary_mount(
+    tmp_path, monkeypatch
 ):
     setup_env(tmp_path, monkeypatch)
     source = tmp_path / "source"
@@ -1076,7 +1133,7 @@ def test_interactive_commands_reject_permission_policy_after_temporary_mount(
     result = runner.invoke(
         app,
         [
-            command,
+            "attach",
             "-n",
             "demo1",
             "--mount",

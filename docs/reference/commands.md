@@ -133,13 +133,14 @@ aisbox env unset -n demo -e LOG_LEVEL -e FEATURE_FLAG
 Run a one-shot prompt in a disposable container.
 
 ```bash
-aisbox run [-n <name>] [--workspace <path>] [--mount <source> <alias> ...] [--yes] -- <prompt>
+aisbox run [-n <name>] [--workspace <path>] [--permission-policy <policy>] [--mount <source> <alias> ...] [--yes] -- <prompt>
 ```
 
 | Option | Description |
 |--------|-------------|
 | `-n`, `--name` | Environment name. |
 | `--workspace` | Temporary workspace override for this run. |
+| `--permission-policy` | Agent permission policy: `default`, `auto`, or `bypass`. |
 | `--mount` | Temporary mount override (`SOURCE ALIAS`). Repeatable. |
 | `--yes` | Acknowledge sensitive workspace or mount paths. |
 
@@ -152,6 +153,7 @@ Example:
 aisbox run -n demo -- "explain this codebase"
 aisbox run -n demo --workspace /tmp/other -- "check for issues"
 aisbox run -n demo --mount /host/data data -- "analyze the data"
+aisbox run -n demo --permission-policy auto -- "update the tests"
 ```
 
 ## `aisbox start`
@@ -159,7 +161,7 @@ aisbox run -n demo --mount /host/data data -- "analyze the data"
 Start an interactive agent session.
 
 ```bash
-aisbox start [-n <name>] [--keep] [--workspace <path>] [--mount <source> <alias> ...] [--yes]
+aisbox start [-n <name>] [--keep] [--workspace <path>] [--permission-policy <policy>] [--mount <source> <alias> ...] [--yes]
 ```
 
 | Option | Description |
@@ -167,16 +169,20 @@ aisbox start [-n <name>] [--keep] [--workspace <path>] [--mount <source> <alias>
 | `-n`, `--name` | Environment name. |
 | `--keep` | Retain the container for later attachment. |
 | `--workspace` | Temporary workspace override. |
+| `--permission-policy` | Agent permission policy: `default`, `auto`, or `bypass`. |
 | `--mount` | Temporary mount override (`SOURCE ALIAS`). Repeatable. |
 | `--yes` | Acknowledge sensitive workspace or mount paths. |
 
 Without `--keep`, the container is disposable (`--rm`). With `--keep`, the
-container is retained for later `attach`.
+container is retained for later `attach`. For an existing running retained
+session, use `aisbox kill` before starting with a different non-default
+permission policy.
 
 Example:
 
 ```bash
 aisbox start -n demo
+aisbox start -n demo --permission-policy auto
 aisbox start -n demo --keep
 aisbox start -n demo --workspace /tmp/other
 ```

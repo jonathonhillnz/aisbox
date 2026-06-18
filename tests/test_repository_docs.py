@@ -643,14 +643,17 @@ def test_readme_documents_opencode_support_and_authentication():
     assert "OPENCODE_EXPERIMENTAL_" not in readme
 
 
-def test_readme_documents_run_permission_policy():
+def test_readme_documents_permission_policy_for_run_and_start():
     normalized = " ".join(read_text("README.md").split())
 
     for text in [
         'aisbox run --permission-policy auto -- "update the tests"',
+        "aisbox start --permission-policy auto",
         'aisbox run --permission-policy bypass -- "prototype the change"',
+        "aisbox start --permission-policy bypass",
+        "For `aisbox start --keep`, the permission policy is applied when the retained container is created",
         "`default` keeps the agent's default approval behavior",
-        "`auto` is recommended for non-interactive write-capable runs",
+        "`auto` is recommended when the agent should edit files inside the selected workspace without stopping for approval prompts",
         "`bypass` disables agent-level approval prompts and may also disable the selected agent's own sandbox checks",
         "Claude Code",
         "`--permission-mode auto`",
