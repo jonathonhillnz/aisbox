@@ -13,8 +13,20 @@ stored under `<state-root>/<name>/`.
 | OpenCode | `opencode` | `opencode run` | `opencode` |
 
 Agent images are built locally during `aisbox create` and `aisbox rebuild`.
-The build starts from Ubuntu 24.04, installs the agent CLI globally via npm,
-and runs as an unprivileged `aisbox` user.
+Each image starts from Ubuntu 24.04, includes Git, OpenSSH client tools, GitHub
+CLI (`gh`), `nano`, and `vim`, installs the agent CLI via npm, and runs as an
+unprivileged `aisbox` user.
+
+GitHub and SSH authentication are configured explicitly from inside the
+environment shell. For example:
+
+```bash
+aisbox shell -n demo1
+ssh-keygen
+gh auth login
+```
+
+aisbox does not copy or mount host credential directories automatically.
 
 ## Creating an environment
 

@@ -104,6 +104,11 @@ one environment.
 | OpenCode | `opencode` | `opencode run` |
 
 Agent images are built locally during `aisbox create` and `aisbox rebuild`.
+They include Git, OpenSSH client tools, GitHub CLI (`gh`), `nano`, and `vim`
+alongside the selected agent CLI. GitHub and SSH authentication are configured
+explicitly inside the environment shell, for example with `aisbox shell -n demo1`,
+`ssh-keygen`, and `gh auth login`. Host credential directories are not copied or
+mounted automatically.
 
 ## Run Permission Policies
 

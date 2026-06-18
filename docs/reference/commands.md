@@ -241,7 +241,8 @@ The container is disposable — removed on exit.
 
 ## `aisbox rebuild`
 
-Rebuild the Docker image for the environment's agent.
+Rebuild the Docker image for the environment's agent. Use this after updating
+aisbox to pick up image changes such as added command-line tools.
 
 ```bash
 aisbox rebuild [-n <name>]

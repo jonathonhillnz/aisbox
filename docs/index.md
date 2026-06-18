@@ -30,8 +30,9 @@ details.
 | OpenCode | `opencode` | `opencode run` |
 
 Agent images are built locally during `aisbox create` and `aisbox rebuild`.
-Each image starts from Ubuntu 24.04, installs the agent CLI via npm, and runs
-as an unprivileged `aisbox` user inside the container.
+Each image starts from Ubuntu 24.04, includes Git, OpenSSH client tools, GitHub
+CLI (`gh`), `nano`, and `vim`, installs the agent CLI via npm, and runs as an
+unprivileged `aisbox` user inside the container.
 
 ## Where to go next
 
