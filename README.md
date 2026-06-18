@@ -21,7 +21,10 @@ workspace and additional directory you mount.
 - `aisbox` never automatically copies or mounts host credential state,
   including `~/.claude`, `~/.codex`, and `~/.ssh`. Explicit sensitive
   workspaces or mounts are writable and require confirmation or `--yes`.
-- Docker runs as the current user. `aisbox` does not run Docker through `sudo`.
+- Docker runs through the user's configured Docker CLI context.
+  `aisbox` does not run Docker through `sudo`. On Linux, rootless Docker is
+  recommended; a standard rootful daemon controlled through the `docker` group
+  should be treated as root-equivalent host access.
 - Runtime containers are disposable by default. `start --keep` and `attach`
   explicitly retain one interactive container per environment until
   `aisbox kill`. A retained container's writable-layer state may contain
@@ -44,7 +47,9 @@ workspace and additional directory you mount.
 - Supported hosts are POSIX systems (Linux and macOS). Native Windows hosts are
   not supported during the public preview.
 - Python 3.11 or newer
-- Docker access available to the current user without `sudo`
+- Docker CLI access to a reachable Docker daemon or compatible context.
+  Rootless Docker is recommended on Linux. `aisbox` does not run Docker through
+  `sudo`.
 - `pipx` for the recommended CLI installation
 - Network access for Docker image builds, which install Ubuntu packages and npm
   agent CLIs
@@ -54,6 +59,16 @@ Check Docker access with:
 ```bash
 docker version
 ```
+
+Check whether Docker is rootless with:
+
+```bash
+docker info --format '{{range .SecurityOptions}}{{println .}}{{end}}'
+```
+
+If the output includes `rootless`, the Docker daemon is running in rootless
+mode. `aisbox doctor` reports this as `Docker mode: rootless`; otherwise it
+warns that rootless Docker is recommended on Linux.
 
 ## Install From A Checkout
 

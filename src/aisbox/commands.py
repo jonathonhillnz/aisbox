@@ -20,6 +20,7 @@ from aisbox.docker import (
     attach_container,
     build_image,
     docker_available,
+    docker_rootless,
     inspect_container,
     list_retained_containers,
     remove_container,
@@ -622,6 +623,15 @@ def doctor(store: EnvironmentStore | None = None) -> DoctorResult:
     ok = True
     if docker_available():
         lines.append("Docker: ok")
+        rootless = docker_rootless()
+        if rootless is True:
+            lines.append("Docker mode: rootless")
+        elif rootless is False:
+            lines.append(
+                "Docker mode: rootful (rootless Docker is recommended on Linux)"
+            )
+        else:
+            lines.append("Docker mode: unknown")
     else:
         lines.append("Docker: missing, unreachable, or permission denied")
         ok = False

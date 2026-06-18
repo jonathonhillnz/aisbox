@@ -270,8 +270,10 @@ Run a health check on the aisbox installation.
 aisbox doctor
 ```
 
-Checks Docker availability and state-directory writability, and lists the
-supported agents. Exits with a non-zero status if any check fails.
+Checks Docker availability, reports whether Docker is rootless, checks
+state-directory writability, and lists the supported agents. Exits with a
+non-zero status if a required check fails. Rootful Docker is reported as a
+warning because rootless Docker is recommended on Linux.
 
 ## `aisbox delete`
 

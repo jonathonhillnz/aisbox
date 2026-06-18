@@ -130,6 +130,27 @@ def docker_available(runner: Runner = default_runner) -> bool:
     return True
 
 
+def docker_rootless(runner: Runner = default_runner) -> bool | None:
+    try:
+        result = runner(
+            [
+                "docker",
+                "info",
+                "--format",
+                "{{range .SecurityOptions}}{{println .}}{{end}}",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    return any(
+        option.removeprefix("name=").strip() == "rootless"
+        for option in result.stdout.splitlines()
+    )
+
+
 @contextmanager
 def _env_file_for(env: dict[str, str]) -> Iterator[str | None]:
     """Write env vars to a temp file and yield the path.

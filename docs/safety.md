@@ -32,11 +32,19 @@ as workspaces or mounts only after acknowledging the warning described below.
     mounted workspace through its upstream compatibility behavior. These are
     project files within your workspace, not host-level configuration.
 
-## Docker runs as the current user
+## Docker access
 
-`aisbox` invokes Docker as the current user without `sudo`. Container
-processes run as a non-root `aisbox` user inside the container. This avoids
-running containers as root.
+`aisbox` invokes Docker through the user's configured Docker CLI context
+without `sudo`. Container processes run as a non-root `aisbox` user inside the
+container.
+
+On Linux, rootless Docker is recommended because both the Docker daemon and
+containers run without root privileges. If you use the standard rootful Docker
+daemon through the `docker` group, treat that Docker access as root-equivalent
+on the host: a user who can control a rootful Docker daemon can create
+containers with powerful host mounts. `aisbox` does not add automatic `sudo`
+behavior and does not automatically mount host credential directories, but it
+cannot make rootful Docker daemon access non-privileged.
 
 ## Container lifecycle
 
@@ -105,6 +113,9 @@ reduces accidental exposure but does not make a sensitive mount safe.
 
 - **No VM-level isolation.** The boundary is Linux namespaces via Docker, not
   gVisor, Firecracker, or a virtual machine.
+- **No Docker daemon hardening.** `aisbox` uses the Docker daemon or context
+  you configured. Rootless Docker is recommended on Linux; rootful Docker
+  access remains a host-level trust decision.
 - **No network restrictions.** Containers have default Docker outbound
   network access.
 - **No resource limits.** CPU and memory are not constrained by aisbox.

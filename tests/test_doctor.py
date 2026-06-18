@@ -21,6 +21,7 @@ def test_doctor_success_creates_private_state_root_regardless_of_umask(
     home = tmp_path / "aisbox-home"
     monkeypatch.setenv("AISBOX_HOME", str(home))
     monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: True)
 
     previous_umask = os.umask(0o022)
     try:
@@ -30,9 +31,35 @@ def test_doctor_success_creates_private_state_root_regardless_of_umask(
 
     assert result.exit_code == 0
     assert "Docker: ok" in result.stdout
+    assert "Docker mode: rootless" in result.stdout
     assert "State directory: ok" in result.stdout
     assert "Supported agents: claude, codex, opencode" in result.stdout
     assert mode(home) == 0o700
+
+
+def test_doctor_warns_when_docker_is_rootful(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: False)
+
+    result = runner.invoke(app, ["doctor"])
+
+    assert result.exit_code == 0
+    assert (
+        "Docker mode: rootful (rootless Docker is recommended on Linux)"
+        in result.stdout
+    )
+
+
+def test_doctor_reports_unknown_docker_mode(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISBOX_HOME", str(tmp_path / "aisbox-home"))
+    monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: None)
+
+    result = runner.invoke(app, ["doctor"])
+
+    assert result.exit_code == 0
+    assert "Docker mode: unknown" in result.stdout
 
 
 def test_doctor_tightens_existing_state_root(tmp_path, monkeypatch):
@@ -41,6 +68,7 @@ def test_doctor_tightens_existing_state_root(tmp_path, monkeypatch):
     home.chmod(0o755)
     monkeypatch.setenv("AISBOX_HOME", str(home))
     monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: True)
 
     result = runner.invoke(app, ["doctor"])
 
@@ -56,6 +84,7 @@ def test_doctor_preserves_existing_write_test_file_and_cleans_probe(tmp_path, mo
     existing_probe_name.write_text("user data\n", encoding="utf-8")
     monkeypatch.setenv("AISBOX_HOME", str(home))
     monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: True)
 
     result = runner.invoke(app, ["doctor"])
 
@@ -78,6 +107,7 @@ def test_doctor_reports_state_directory_os_error(tmp_path, monkeypatch):
     home = tmp_path / "aisbox-home"
     monkeypatch.setenv("AISBOX_HOME", str(home))
     monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: True)
 
     def fail_probe(*args, **kwargs):
         raise OSError("no writes here")
@@ -104,6 +134,7 @@ def test_doctor_reports_invalid_state_root_without_traceback(
         home.write_text("not a directory\n", encoding="utf-8")
     monkeypatch.setenv("AISBOX_HOME", str(home))
     monkeypatch.setattr("aisbox.commands.docker_available", lambda: True)
+    monkeypatch.setattr("aisbox.commands.docker_rootless", lambda: True)
 
     result = runner.invoke(app, ["doctor"])
 

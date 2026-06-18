@@ -16,6 +16,7 @@ from aisbox.docker import (
     build_image,
     container_command,
     docker_available,
+    docker_rootless,
     retained_container_name,
     run_container,
 )
@@ -118,6 +119,50 @@ def test_docker_available_returns_true_when_docker_version_succeeds():
         capture_output=True,
         text=True,
     )
+
+
+def test_docker_rootless_returns_true_when_security_options_include_rootless():
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="name=seccomp\nname=rootless\nname=cgroupns\n",
+            stderr="",
+        )
+    )
+
+    assert docker_rootless(runner=runner) is True
+    runner.assert_called_once_with(
+        [
+            "docker",
+            "info",
+            "--format",
+            "{{range .SecurityOptions}}{{println .}}{{end}}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_docker_rootless_returns_false_when_security_options_omit_rootless():
+    runner = Mock(
+        return_value=subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="name=seccomp\nname=cgroupns\n",
+            stderr="",
+        )
+    )
+
+    assert docker_rootless(runner=runner) is False
+
+
+def test_docker_rootless_returns_none_when_docker_info_fails():
+    def failing_runner(command, **kwargs):
+        raise subprocess.CalledProcessError(returncode=1, cmd=command)
+
+    assert docker_rootless(runner=failing_runner) is None
 
 
 def test_container_command_includes_mounts_env_and_prompt():
