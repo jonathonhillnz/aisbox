@@ -23,8 +23,9 @@ good enough*. Never make them silently.
 
 **When NOT to use:**
 - The operator did not ask for delegation. Just do the task yourself.
-- The task needs back-and-forth — `aisbox run` is one-shot (`claude -p` style),
-  no multi-turn conversation.
+- The task needs live back-and-forth with the coagent. `aisbox run` is
+  one-shot (`claude -p` style), no multi-turn conversation. For non-trivial
+  delegated work, prefer a handoff folder so context and outputs are explicit.
 - Setting up, authenticating, or configuring sandboxes (that's the operator's
   job via `aisbox create`/`start`).
 
@@ -36,11 +37,51 @@ good enough*. Never make them silently.
 | Run on a named sandbox | `aisbox run -n <name> -- "<prompt>"` |
 | Allow normal write-capable one-shot work | `aisbox run --permission-policy auto -- "<prompt>"` |
 | Let the coagent see the current repo | add `--workspace .` |
+| Use explicit context for non-trivial work | create `handoff/STATE.md` + `handoff/<task>/TASK.md` |
+| Require structured coagent output | ask for `handoff/<task>/RESULT.md` and `handoff/<task>/QUESTIONS.md` |
 | List sandboxes | `aisbox list` → `name<TAB>agent<TAB>workspace` |
 
 Pass the prompt as trailing args after `--`. Capture stdout, stderr, and the
 exit code separately — the coagent's answer goes to **stdout**; errors go to
 **stderr** with exit code **1**.
+
+## Handoff Folder Protocol
+
+For non-trivial delegated work, prefer a handoff folder over a long prompt or
+any assumption of persistent chat context. The main agent controls how much
+context the coagent receives by writing durable files in the mounted workspace.
+Do not rely on persistent chat context.
+
+Use this shape:
+
+| File | Purpose |
+| --- | --- |
+| `handoff/STATE.md` | Shared state: standing rules, current pointer, accepted decisions, environment quirks, and project-specific run protocol. |
+| `handoff/<task>/TASK.md` | One bounded task with scope, references, acceptance criteria, required outputs, and exact verification commands. |
+| `handoff/<task>/RESULT.md` | Coagent completion report: files changed, key decisions, assumptions, and pasted verification output. |
+| `handoff/<task>/QUESTIONS.md` | Blockers and assumptions made to proceed, or `None`. |
+
+After the operator approves the workspace exposure and permission policy, use a
+short prompt like this:
+
+```bash
+aisbox run -n <env> --workspace . --permission-policy <policy> --yes -- \
+  "Read handoff/<task>/TASK.md and handoff/STATE.md, then execute that step exactly. \
+   Write handoff/<task>/RESULT.md and handoff/<task>/QUESTIONS.md. Follow the protocol in STATE.md."
+```
+
+The main agent should write `TASK.md` narrowly enough that the coagent can
+finish without asking questions mid-run. If a question comes up, the coagent
+should make a reasonable documented assumption, continue when safe, and record
+the issue in `QUESTIONS.md`.
+
+After the run, read `RESULT.md` and `QUESTIONS.md`, inspect the changes, run any
+host-side verification needed, and confirm with the operator before accepting
+the result. If the output is accepted, append durable decisions or current-state
+updates back to `handoff/STATE.md` when useful for later tasks.
+
+Persistent chat, tmux, mailbox supervisors, and retained coagent protocols are
+out of scope for this skill. Use explicit handoff files instead.
 
 ## Workflow
 
@@ -54,7 +95,15 @@ exit code separately — the coagent's answer goes to **stdout**; errors go to
    directory to the sandbox and its outbound network — flag that. Default lean:
    sandbox-only. Never decide this silently.
 
-3. **Choose the permission policy — ASK every time.** Use this heuristic:
+3. **Choose the permission policy — recommend, then ASK every time.** The main
+   agent should determine the recommended permission policy from the task's
+   expected behavior, then ask the operator to confirm it. The main agent must
+   still confirm the permission policy with the operator. It must not silently
+   choose `auto` or `bypass`.
+
+   In short: **Choose the permission policy — ASK every time.**
+
+   Use this heuristic:
    - Use `default` for clearly read-only work: explain code, inspect files,
      summarize, review, or answer questions.
    - Use `auto` for work likely to need normal in-workspace writes: create

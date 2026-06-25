@@ -690,6 +690,32 @@ def test_aisbox_coagent_skill_documents_permission_policy_choice():
     assert "fail -> sat" not in read_text("skills/aisbox-coagent/SKILL.md")
 
 
+def test_aisbox_coagent_skill_documents_handoff_folder_protocol():
+    normalized = " ".join(read_text("skills/aisbox-coagent/SKILL.md").split())
+
+    assert "handoff/STATE.md" in normalized
+    assert "handoff/<task>/TASK.md" in normalized
+    assert "RESULT.md" in normalized
+    assert "QUESTIONS.md" in normalized
+    assert "For non-trivial delegated work, prefer a handoff folder" in normalized
+    assert "The main agent controls how much context the coagent receives" in normalized
+
+
+def test_aisbox_coagent_skill_requires_operator_confirmation_for_recommended_policy():
+    normalized = " ".join(read_text("skills/aisbox-coagent/SKILL.md").split())
+
+    assert "The main agent should determine the recommended permission policy" in normalized
+    assert "must still confirm the permission policy with the operator" in normalized
+    assert "must not silently choose `auto` or `bypass`" in normalized
+
+
+def test_aisbox_coagent_skill_replaces_persistent_chat_with_explicit_context():
+    normalized = " ".join(read_text("skills/aisbox-coagent/SKILL.md").split())
+
+    assert "Do not rely on persistent chat context" in normalized
+    assert "Persistent chat, tmux, mailbox supervisors, and retained coagent protocols are out of scope for this skill" in normalized
+
+
 def test_readme_limits_supported_agents_to_the_documented_three():
     readme = read_text("README.md")
     limitations = readme.split("## Known Preview Limitations", 1)[1].split(
